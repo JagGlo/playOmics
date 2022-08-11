@@ -1,0 +1,6 @@
+"0","```r
+dtree <- setHyperPars(lrn, par.vals = tune.pars$x)
+set.seed(1000) 
+dtree_train <- train(learner=dtree, task=clasif.task) 
+getLearnerModel(dtree_train)
+```"

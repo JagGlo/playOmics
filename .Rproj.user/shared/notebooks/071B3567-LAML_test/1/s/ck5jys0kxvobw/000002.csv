@@ -1,0 +1,40 @@
+"0","```r
+clinical_data <-
+  read_excel(\"~/code/test_data/TCGA-LAML/csv/clinical_data.xlsx\", na = c(\"NA\", \"NA,NA\")) %>% 
+  data.table::transpose(keep.names=\"ID\", make.names=\"attrib_name\") %>% 
+  select(-\"overallsurvival\") %>% 
+  mutate_at(.vars = c(\"years_to_birth\", \"overall_survival\"), as.numeric) %>% 
+  mutate_at(.vars = c(\"gender\", \"race\", \"ethnicity\", \"status\"), as.factor)
+
+met_HM27 <-
+  read_excel(\"~/code/test_data/TCGA-LAML/csv/Methylation (Gene level, HM27).xlsx\", na = c(\"NA\", \"NA,NA\")) %>% 
+  transpose(keep.names=\"ID\", make.names=\"attrib_name\") %>% 
+  mutate_at(vars(-ID), as.numeric)
+
+met_HM450K <-
+  read_excel(\"~/code/test_data/TCGA-LAML/csv/Methylation (Gene level, HM450K).xlsx\", na = c(\"NA\", \"NA,NA\")) %>% 
+  transpose(keep.names=\"ID\", make.names=\"attrib_name\") %>% 
+  mutate_at(vars(-ID), as.numeric)
+
+miRNA <-
+  read_excel(\"~/code/test_data/TCGA-LAML/csv/miRNA (Gene level).xlsx\", na = c(\"NA\", \"NA,NA\")) %>% 
+  transpose(keep.names=\"ID\", make.names=\"attrib_name\") %>% 
+  mutate_at(vars(-ID), as.numeric)
+
+mutation <-
+  read_excel(\"~/code/test_data/TCGA-LAML/csv/Mutation (Gene level).xlsx\", na = c(\"NA\", \"NA,NA\")) %>% 
+  transpose(keep.names=\"ID\", make.names=\"attrib_name\") %>% 
+  mutate_at(vars(-ID), as.numeric)
+
+RNAseq <-
+  read_excel(\"~/code/test_data/TCGA-LAML/csv/RNAseq (HiSeq, Gene level).xlsx\", na = c(\"NA\", \"NA,NA\")) %>% 
+  transpose(keep.names=\"ID\", make.names=\"attrib_name\") %>% 
+  mutate_at(vars(-ID), as.numeric)
+
+SCNV_log_ratio <-
+  read_excel(\"~/code/test_data/TCGA-LAML/csv/SCNV (Focal level, log-ratio).xlsx\", na = c(\"NA\", \"NA,NA\")) %>% 
+  transpose(keep.names=\"ID\", make.names=\"attrib_name\") %>% 
+  mutate_at(vars(-ID), as.numeric)
+
+LAML_data <- connect_datasets(clinical_data, met_HM27, met_HM450K, miRNA, mutation, RNAseq, SCNV_log_ratio)
+```"

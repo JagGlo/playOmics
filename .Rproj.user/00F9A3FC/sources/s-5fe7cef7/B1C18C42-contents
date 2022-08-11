@@ -1,0 +1,875 @@
+---
+title: "Multimodal classifiers"
+output: html_notebook
+---
+
+```{r setup, include=FALSE} 
+# library("biomaRt")
+library(parallel) # for parallel calculations
+# library(purrr)
+require(tidyverse)
+require(factoextra) # for PCA
+require(tidymodels)
+require(mlr3) # for filtering
+require(mlr3filters) # for filtering
+require(mlflow) # for experiment tracking
+# install_mlflow()
+require(carrier) # for experiment tracking
+require(parallel)
+require(ggupset)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+
+file.sources <- list.files("R", full.names = T)
+sapply(file.sources,source)
+
+load(here::here("EPIMARKER_data.RData"))
+```
+
+# Przygotowanie danych
+
+## Dane kliniczne
+
+## Przygotuj ujednolicone dane
+
+```{r}
+data <- connect_datasets(clinical_data, eeg_data, proteomics_data, miRNA_data, RNA_data)
+```
+
+
+# Eksploracja danych
+
+```{r}
+plot_coverage(data)
+```
+Pełne dane EEG:
+
+```{r}
+data$eeg_data_ommited <- na.omit(data$eeg_data) 
+plot_coverage(data[-2])
+```
+Bez danych EEG:
+
+```{r}
+data <- data[-6]
+plot_coverage(data[-2])
+```
+
+
+
+```{r}
+data_summary(data)
+```
+(dzięki data_summary łatwo odkryć że dane są w nieprawidłowym formacie - np. dane proteomiczne wczytane z pliku tekstowego, w którym metadane mieszają się z danymi numerycznymi)
+
+```{r}
+data_overview(data$proteomics_data)
+#  data$proteomics_data %>%
+#         skimr::skim() %>%
+#         partition()
+# # View(overview)
+# present_numeric_overview(my_overview)
+# my_overview
+```
+
+# Efekt wieku w danych molekularnych
+
+
+## Sprawdzenie efektu wieku
+
+```{r}
+# od FH: 0-10, 11-40, >40
+# data$proteomics_data %>%
+#   left_join(proteom_metadata %>% ungroup() %>% select(sample_age_days, patient_code)) %>% 
+#   mutate(sample_age_weeks = as.integer(sample_age_days/7),
+#          age_groups = cut(sample_age_weeks, breaks=c(min(sample_age_weeks), 11, 41, max(sample_age_weeks)+1), right = FALSE)
+#          ) %>% 
+#   select(-sample_age_weeks, -sample_age_days) %>% 
+# plot_PCA(age_groups, "Age groups [weeks]", "Dane proteomiczne")
+```
+
+## Sprawdzenie efektu płci
+
+
+```{r}
+data$RNA_data %>%
+  left_join(data$clinical_data %>% select(patient_code, sex)) %>% 
+plot_PCA(sex, "Sex", "RNA")
+```
+```{r}
+data$RNA_data %>%
+  left_join(data$clinical_data %>% select(patient_code, sex, status)) %>% 
+  select(sex, status) %>% 
+  table() %>% 
+  chisq.test()
+```
+
+# Preprocessing
+
+Poniżej zdefiniowano krok filtrowania zmiennych. Do dalszego eksperymentu przechodzą tylko te zmienne, które mają więcej niż 3 odczyty w co najmniej 75% próbek. 
+
+```{r}
+data[["RNA_data"]] <- data_thresholding(data[["RNA_data"]], 3, 0.75)
+```
+
+Zastosowanie tego kroku nie powoduje redukcji wymiarowości.
+
+# Przygotowanie danych do modelowania
+
+```{r}
+target <-
+  define_target(phenotype_df = "clinical_data",
+              target_variable = "status",
+              id_variable = "patient_code",
+              positive_class_indication = "DRE")
+
+data_prepared <-
+  prepare_data_for_modelling(data = data, target = target)
+```
+
+# Wiele małych modeli
+
+```{r}
+data_filtered_m <- 
+  nested_filtering(data_prepared[-2], target, filter_name = "auc", n_threads = 10)
+```
+
+```{r}
+small_models <-
+create_multiple_models(data_filtered_m, "tidymodels_experiment_mlflow_test_me2", n_cores = 2)
+```
+
+```{r}
+small_models <-
+create_multiple_models(data_filtered_m, "tidymodels_experiment_mlflow", n_cores = 5)
+```
+
+```{r}
+mlflow_ui()
+```
+
+
+```{r}
+small_models %>% bind_rows() %>% View()
+```
+
+
+```{r}
+mlflow_rfunc_serve("tidymodels_experiment6/model",
+                   data_to_fit = data_to_fit[1:3,])
+```
+
+```{r}
+data_to_test <- readRDS(here::here("tidymodels_experiment6/data.rds"))
+
+mymodel <- mlflow_load_model("/home/rstudio/code/paczka_R/mlruns/7/e862cb2f798a4b1daa11c56db8c869ee/artifacts/model")
+mlflow_load_model("/home/rstudio/code/paczka_R/tidymodels_experiment_mlflow_test/mlflow/0/934bd94276604d6eb0e7b14aa68fcf9c/artifacts/had_VaEEG + gene_result_of_mutational_analysis_TSC_2 + ENSG00000278842")
+mlflow_predict(mymodel, data_to_test[1:2, 1:3])
+```
+# My own mlflow_ui
+
+```{r}
+experiment_name <- "tidymodels_experiment_mlflow_test_me2"
+results <- see_metrics_for_all_data(experiment_name)
+```
+
+```{r}
+
+```
+
+
+
+```{r}
+library(httr)
+library(jsonlite)
+
+mlflow_rfunc_serve("/home/rstudio/code/paczka_R/mlruns/7/e862cb2f798a4b1daa11c56db8c869ee/artifacts/model")
+
+request_body_json <- jsonlite::toJSON(data_to_test[1:2, 1:3])
+
+result = httr::POST(
+  url = paste0('http://127.0.0.1:8090/','predict/'),
+  body=request_body_json,
+  add_headers(.headers = c("Content-Type"="application/json","Accept" = "application/json")))
+output <- rawToChar(result$content)
+
+result <- httr::POST("http://127.0.0.1:8090/predict/", body=request_body_json)
+
+```
+
+
+```{r}
+model_stats_tm <-
+small_models %>% 
+  bind_rows()
+
+model_stats_tm %>% 
+  ggplot(aes(mcc)) +
+  geom_histogram() +
+  theme_minimal()
+```
+
+```{r}
+models_to_eval <-
+model_stats_tm %>% 
+  filter(mcc > 0.8)
+
+molecules_from_model <-
+models_to_eval %>% 
+  arrange(desc(mcc)) %>% 
+  select(mcc, model) %>% 
+  separate(model, into = c("feature1", "feature2", "feature3"), sep = "\\+", remove = F) %>% 
+  gather(feature_no, feature_name, c(feature1, feature2, feature3)) %>% 
+  mutate(feature_name = str_trim(feature_name, "both")) %>% 
+  filter(!is.na(feature_name))
+
+molecules_from_model <-
+bind_cols(
+  molecules_from_model %>% 
+    group_by(feature_name) %>% 
+    count() %>% 
+    arrange(desc(n)) %>% 
+    rename(appears_in_n_models = n),
+  models_to_eval %>% count() %>% rename(n_models = n)
+) %>% 
+  mutate(appears_in_pcent = percent(appears_in_n_models/n_models, accuracy = 1)) %>% 
+  select(-n_models)
+
+molecules_from_model
+```
+
+
+```{r}
+molecules_to_count <- unique(molecules_from_model$feature_name)
+
+molecules_to_count <-
+data_filtered_m %>%
+    reduce(full_join, by = c(target$target_variable, target$id_variable)) %>% 
+  mutate_at(vars(contains("TSC"), is_cortical_tubers_exists, is_sega_exists,starts_with("sex")), as.factor)
+
+molecules_stats <-
+molecules_to_count %>% 
+  group_by(status) %>% 
+   summarise(n = n()) %>% 
+  left_join(
+    molecules_to_count %>% 
+      group_by(status) %>% 
+       summarise(across(where(is.factor), 
+                        list(numbers = ~ sum(.x == 1, na.rm = TRUE),
+                              n = ~sum(!is.na(.x))))) %>% 
+      gather(key, value, - status) %>% 
+      separate(key, c("key", "what"), sep = "_(?=h|n)") %>% 
+      spread(what, value) %>% 
+      mutate(pcent = scales::percent(numbers/n, accuracy =1)) %>% 
+      mutate(numbers = paste0(numbers, " (", pcent, ")")) %>% 
+      select(-pcent, -n) %>% 
+      spread(key, numbers)
+  ) %>% 
+  left_join(
+   molecules_to_count %>% 
+      group_by(status) %>% 
+        summarise(across(where(is.numeric), 
+                        list(median = ~ median(.x, na.rm = TRUE), 
+                             Q1 = ~ quantile(.x, 0.25, na.rm = TRUE), 
+                             Q3 = ~ quantile(.x, 0.75, na.rm = TRUE)))) %>% 
+       mutate_if(is.numeric, round, 2) %>% 
+       gather(key, value, - status) %>% 
+      separate(key, c("key", "what"), sep = "_(?=Q|median)") %>% 
+      spread(what, value) %>% 
+      mutate(numbers = paste0(median, " (", Q1, "-", Q3, ")")) %>% 
+      select(-median, -Q1, -Q3) %>% 
+      spread(key, numbers)
+      ) %>% 
+  gather(variable, value, - status) %>% 
+  spread(status, value)
+  # write_csv("data_for_directions.csv", na = "")
+
+molecules_from_model <-
+molecules_from_model %>% 
+  left_join(molecules_stats, by = c("feature_name" = "variable")) 
+
+molecules_from_model %>% View()
+```
+
+## mlr
+
+```{r}
+data_united <- 
+  data_filtered_m %>% 
+  reduce(full_join, by = c(target$target_variable, target$id_variable)) %>% 
+  select(-VaEEG_age_months, -had_VaEEG, -target$id_variable, -starts_with("treatment")) %>% 
+  select(-target$target_variable, everything()) 
+```
+
+```{r}
+data_united %>% 
+  select(status, everything())  %>% 
+  summarise_all(funs(sum(!is.na(.)))) %>% 
+  gather(key, n) %>% 
+  ggplot(aes(n)) + 
+  geom_bar() 
+
+data_united %>% 
+  group_by(status) %>%  
+  select(everything()) %>%  # replace to your needs
+  summarise_all(funs(sum(!is.na(.)))) %>% 
+  gather(key, value, -status) %>% 
+  ggplot(aes(value)) + geom_bar(aes(fill = status)) + facet_wrap(~ status, scales = "free")
+```
+
+
+```{r}
+# Libs --------------------------------------------------------------------
+
+library(tidyverse)
+library(mlr)
+library(parallel)
+
+# Data --------------------------------------------------------------------
+
+rdesc <- makeResampleDesc("Subsample",
+  iters = 50, predict = "both", stratify = TRUE
+)
+ps = makeParamSet(makeDiscreteParam("link", "logit"))
+ctrl = makeTuneControlGrid(tune.threshold = TRUE, resolution = 1)
+lrn = makeLearner("classif.binomial",
+                  predict.type = "prob",
+                  id = "logreg")
+
+# Analysis ----------------------------------------------------------------
+chunk_size <- 100
+chunks <-
+  c(
+    combn(ncol(data_united) - 1, 2, simplify = FALSE),
+    combn(ncol(data_united) - 1, 3, simplify = FALSE)
+  ) %>%
+  lapply(function(y) {
+    c(y, ncol(data_united))
+  }) %>%
+  sample() %>% # shuffle
+  split(rep(1:ceiling(length(.) / chunk_size), each = chunk_size)[1:length(.)])
+
+# Multicore backend
+gc()
+cl <- makeForkCluster(10)
+
+models <-
+  chunks %>%
+  names() %>%
+  parLapplyLB(cl, ., function(chunk) {
+  # pbapply::pblapply(function(chunk) { # for debugging
+    headers <-
+      structure(list(features = character(0), n = integer(0), thr = numeric(0), 
+                     mcc.test.mean = numeric(0), mmce.test.mean = numeric(0), 
+                     npv.test.mean = numeric(0), ppv.test.mean = numeric(0)),
+                row.names = c(NA, 0L),
+                class = c("tbl_df", "tbl", "data.frame"))
+    write_csv(
+      headers,
+      paste0("/home/rstudio/EPIMARKER/classifiers/WP1_models/chunk_", str_pad(chunk, 3, pad = "0"), ".csv")
+    )
+    lapply(chunks[[chunk]], function(combo) {
+      
+      mlr_data <-
+        data_united[, combo] %>%
+        filter(complete.cases(.)) %>%
+        as.data.frame()
+      
+      clasif.task <-
+        makeClassifTask(
+          id = "regression",
+          data = mlr_data,
+          target = target$target_variable,
+          positive = target$positive_class
+        )
+      
+      clasif.task <- normalizeFeatures(clasif.task, method = "standardize")
+      
+      tune.pars = tuneParams(learner = lrn, task = clasif.task, resampling = rdesc,
+                             measures = list(mcc, ppv, npv, mmce), par.set = ps,
+                             control = ctrl, show.info = FALSE)
+      row <-
+        tibble(
+          features = paste(names(mlr_data)[-ncol(mlr_data)], collapse = " + "),
+          n = nrow(mlr_data),
+          thr = tune.pars$threshold
+        ) %>% 
+        bind_cols(
+          tune.pars$y %>% 
+            enframe %>%
+            spread(name, value)
+        )
+      write_csv(row,
+        paste0("/home/rstudio/EPIMARKER/classifiers/WP1_models/chunk_", str_pad(chunk, 3, pad = "0"), ".csv"),
+        append = TRUE
+      )
+      return(row)
+    })
+  })
+
+# Multicore off
+stopCluster(cl)
+rm(cl)
+gc()
+
+# models_stats <-
+#   lapply(models, bind_rows) %>%
+#   bind_rows(.id = "scheme") %>%
+#   arrange(mmce)
+
+# write_csv(models_stats, here::here("models/lm_stats.csv"))
+
+```
+
+
+```{r}
+all_csvs <- list.files("/home/rstudio/EPIMARKER/classifiers/WP1_models/", full.names = TRUE, pattern = ".csv")
+
+model_stats <-
+  pbapply::pblapply(all_csvs, read_csv,
+                    col_types = cols(
+    features = col_character(),
+    n = col_double(),
+    thr = col_double(),
+    mcc.test.mean = col_double(),
+    mmce.test.mean = col_double(),
+    npv.test.mean = col_double(),
+    ppv.test.mean = col_double()
+  )) %>% 
+  bind_rows() %>% 
+  arrange(desc(mcc.test.mean))
+
+model_stats %>% 
+  ggplot(aes(mcc.test.mean)) +
+  geom_histogram() +
+  theme_minimal()
+```
+```{r}
+
+models_to_eval <- 
+model_stats %>% 
+  filter(mcc.test.mean > 0.8)
+
+pbapply::pblapply(1:as.numeric(count(models_to_eval)), function(i) {
+
+  vars <-
+    models_to_eval[[i, "features"]] %>%
+    str_split(pattern = "\\s\\+\\s") %>%
+    unlist()
+
+  fields <-
+    vars %>%
+    match(names(data_united))
+
+  data <-
+    data_united[, c(fields, ncol(data_united))] %>%
+    filter(complete.cases(.))
+  
+  if(length(vars) == 2) {
+   p <-
+     data %>%
+      ggplot(aes_(x =as.name(vars[1]), y = as.name(vars[2]), color = as.name("status"))) +
+      geom_point() +
+      theme_bw()
+   
+    ggsave(paste0("/home/rstudio/EPIMARKER/classifiers/WP1_models/plots/2_vars/",i, "_", vars[1], "_vs_", vars[2], ".png"), plot = p, width = 6, height = 5)
+  } else if(length(vars) == 3){
+     p <-
+      plotly::plot_ly(data,
+        x = as.formula(paste0("~", vars[1])),
+        y = as.formula(paste0("~", vars[2])),
+        z = as.formula(paste0("~", vars[3])),
+        color = ~status,
+        colors = c("#0C4B8E", "#BF382A"),
+        type = "scatter3d",
+        mode = "markers"
+      )
+    
+     htmlwidgets::saveWidget(
+      widget = p,
+      paste0(
+        "/home/rstudio/EPIMARKER/classifiers/WP1_models/plots/3_vars/",
+       i, "_", vars[1], "_vs_", vars[2], "_vs_", vars[3],
+        ".html"
+      ),
+      selfcontained = FALSE,
+      libdir = "/home/rstudio/EPIMARKER/classifiers/WP1_models/plots/3_vars/static"
+    )
+  }
+ 
+})
+
+```
+
+```{r}
+models_to_eval %>% head(10) %>% View()
+```
+
+
+```{r}
+molecules_from_model <-
+models_to_eval %>% 
+  arrange(desc(mcc.test.mean)) %>% 
+  select(mcc.test.mean, features) %>% 
+  separate(features, into = c("feature1", "feature2", "feature3"), sep = "\\+", remove = F) %>% 
+  gather(feature_no, feature_name, c(feature1, feature2, feature3)) %>% 
+  mutate(feature_name = str_trim(feature_name, "both")) %>% 
+  filter(!is.na(feature_name))
+
+molecules_from_model <-
+bind_cols(
+  molecules_from_model %>% 
+    group_by(feature_name) %>% 
+    count() %>% 
+    arrange(desc(n)) %>% 
+    rename(appears_in_n_models = n),
+  models_to_eval %>% count() %>% rename(n_models = n)
+) %>% 
+  mutate(appears_in_pcent = percent(appears_in_n_models/n_models, accuracy = 1)) %>% 
+  select(-n_models)
+```
+
+
+```{r}
+molecules_to_count <- unique(molecules_from_model$feature_name)
+
+molecules_to_count <-
+data_united %>% 
+  mutate_at(vars(contains("TSC"), is_cortical_tubers_exists, is_sega_exists,starts_with("sex")), as.factor)
+
+molecules_stats <-
+molecules_to_count %>% 
+  group_by(status) %>% 
+   summarise(n = n()) %>% 
+  left_join(
+    molecules_to_count %>% 
+      group_by(status) %>% 
+       summarise(across(where(is.factor), 
+                        list(numbers = ~ sum(.x == 1, na.rm = TRUE),
+                              n = ~sum(!is.na(.x))))) %>% 
+      gather(key, value, - status) %>% 
+      separate(key, c("key", "what"), sep = "_(?=h|n)") %>% 
+      spread(what, value) %>% 
+      mutate(pcent = scales::percent(numbers/n, accuracy =1)) %>% 
+      mutate(numbers = paste0(numbers, " (", pcent, ")")) %>% 
+      select(-pcent, -n) %>% 
+      spread(key, numbers)
+  ) %>% 
+  left_join(
+   molecules_to_count %>% 
+      group_by(status) %>% 
+        summarise(across(where(is.numeric), 
+                        list(median = ~ median(.x, na.rm = TRUE), 
+                             Q1 = ~ quantile(.x, 0.25, na.rm = TRUE), 
+                             Q3 = ~ quantile(.x, 0.75, na.rm = TRUE)))) %>% 
+       mutate_if(is.numeric, round, 2) %>% 
+       gather(key, value, - status) %>% 
+      separate(key, c("key", "what"), sep = "_(?=Q|median)") %>% 
+      spread(what, value) %>% 
+      mutate(numbers = paste0(median, " (", Q1, "-", Q3, ")")) %>% 
+      select(-median, -Q1, -Q3) %>% 
+      spread(key, numbers)
+      ) %>% 
+  gather(variable, value, - status) %>% 
+  spread(status, value)
+  # write_csv("data_for_directions.csv", na = "")
+
+molecules_from_model <-
+molecules_from_model %>% 
+  left_join(molecules_stats, by = c("feature_name" = "variable")) 
+
+molecules_from_model
+  # write_csv(here::here("classifiers/wp1_directions.csv"), na = "")
+```
+
+```{r fig.height=5, fig.width=5, message=FALSE, warning=FALSE}
+ molecules_to_count %>% 
+  select(which(sapply(.,class)=="numeric"), "status") %>% 
+  gather(key, value, -status) %>% 
+  arrange(key) %>% 
+  split(., .$key) %>% 
+    lapply(function(x) {
+      x %>%  
+      ggplot(aes(x = status, y = value, color = status))+
+      geom_boxplot() +
+      geom_jitter(height = 0) +
+      theme_bw() +
+      labs(title = x$key[1], y = "value", x = NULL) +
+      theme(legend.position = "none")
+      
+      # ggsave(paste0("~/EPISTOP/additional/results/directions_in_models/", x$key[1], ".png"), width = 6, height = 5)
+    })
+```
+
+# Prawdopodobieństwo wystąpienia lekooporności
+
+```{r}
+test_data <-
+# pierwszy normalny model
+data_united %>% 
+  select(MXD3, MFSD4A, status) %>% 
+  na.omit() 
+
+test_data
+```
+
+```{r}
+library(mlr)
+rdesc <- makeResampleDesc("Subsample",
+  iters = 50L, predict = "both", stratify = TRUE
+)
+ps = makeParamSet(makeDiscreteParam("link", "logit"))
+
+lrn = makeLearner("classif.binomial",
+                  predict.type = "prob",
+                  id = "logreg")
+
+ctrl = mlr::makeTuneControlRandom(maxit = 10, tune.threshold = TRUE)
+
+clasif.task <-
+  makeClassifTask(
+    id = "regression",
+    data = test_data,
+    target = "status",
+    positive = "DRE"
+        )
+      
+# clasif.task <- normalizeFeatures(clasif.task, method = "standardize")
+# Analysis ----------------------------------------------------------------
+
+
+tune.pars = tuneParams(learner = lrn, 
+                       task = clasif.task, 
+                       resampling = rdesc,
+                      measures = list(mcc, ppv, npv, mmce), 
+                      par.set = ps,
+                     control = ctrl, 
+                     show.info = TRUE)
+
+row <-
+  tibble(
+    features = paste(names(test_data)[-ncol(test_data)], collapse = " + "),
+       n = nrow(test_data),
+          thr = tune.pars$threshold
+        ) %>% 
+        bind_cols(
+          tune.pars$y %>% 
+            enframe %>%
+            spread(name, value)
+        )
+row
+```
+
+
+```{r}
+lrn = setPredictThreshold(lrn, predict.threshold = tune.pars$threshold)
+trained_model <- train(lrn, clasif.task)
+```
+
+```{r}
+test_data %>% 
+  ggplot(aes(MFSD4A, MXD3, color = status)) + 
+  geom_point() +
+  theme_classic()
+```
+
+```{r}
+mdl <- glm(status ~ . , data = test_data , family=binomial(link="logit"))
+
+slope <- coef(mdl)[2]/(-coef(mdl)[3])
+intercept <- coef(mdl)[1]/(-coef(mdl)[3]) 
+
+test_data %>% 
+  ggplot(aes(MFSD4A, MXD3, color = status)) + 
+  geom_point()+
+  geom_abline(intercept = intercept , slope = slope, color = "red", size = 2) +
+  xlim(-10,10)+
+  ylim(-10,10)
+```
+
+
+## Test dla dwuskładnikowego
+```{r}
+my_data <-
+  data.frame(
+    MXD3 =runif(n = 100, min = min(test_data[,1]) -1, max = max(test_data[,1]) +1 ),
+     MFSD4A = runif(n = 100, min = min(test_data[,2]) -1, max = max(test_data[,2]) +1 )
+  )
+# scaled_data <- scale(my_data) %>% as.data.frame()
+my_prediction <- predict(trained_model, newdata = my_data)
+bind_cols(
+  my_data,
+  as.data.frame(my_prediction[["data"]])
+) %>% 
+  ggplot(aes(MFSD4A, MXD3, color = response)) + 
+  geom_point() +
+  theme_classic()
+```
+
+```{r}
+bind_cols(
+  my_data,
+  as.data.frame(my_prediction[["data"]])
+) %>% 
+  ggplot(aes(MFSD4A, MXD3, color = response)) + 
+  geom_point()+
+  geom_abline(intercept = intercept , slope = slope, color = "red", size = 2) +
+  xlim(0,10)+
+  ylim(-10,10)
+```
+
+## Test dla Q01995
+
+```{r}
+my_data <-
+  data.frame(
+    Q01995 =runif(n = 10, min = min(test_data$Q01995) -1, max = max(test_data$Q01995) +1 ),
+    P00915  = runif(n = 10, min = min(test_data$P00915) -1, max = max(test_data$P00915) +1 ),
+    hsa.miR.5680 = runif(n = 10, min = min(test_data$hsa.miR.5680) -1, max = max(test_data$hsa.miR.5680) +1 )
+  )
+```
+
+
+```{r}
+my_data <-
+  data.frame(
+    Q13477 =runif(n = 10, min = min(test_data$Q13477) -1, max = max(test_data$Q13477) +1 ),
+    P00915  = test_data[1,2],
+    hsa.miR.5680 = test_data[1,3]
+  )
+# scaled_data <- scale(my_data) %>% as.data.frame()
+my_prediction <- predict(trained_model, newdata = my_data)
+my_prediction[["data"]]
+```
+
+```{r}
+my_data <-
+  data.frame(
+    Q13477 = test_data[1,1],
+    P00915  = runif(n = 10, min = min(test_data$P00915) -1, max = max(test_data$P00915) +1 ),
+    hsa.miR.5680 = test_data[1,3]
+  )
+# scaled_data <- scale(my_data) %>% as.data.frame()
+my_prediction <- predict(trained_model, newdata = my_data)
+my_prediction[["data"]]
+```
+```{r}
+my_data <-
+  data.frame(
+    Q13477 = test_data[1,1],
+    P00915  = test_data[1,2],
+    hsa.miR.5680 = runif(n = 10, min = min(test_data$hsa.miR.5680) -1, max = max(test_data$hsa.miR.5680) +1 )
+  )
+# scaled_data <- scale(my_data) %>% as.data.frame()
+my_prediction <- predict(trained_model, newdata = my_data)
+my_prediction[["data"]]
+```
+```{r}
+my_data <-
+  data.frame(
+    Q13477 =runif(n = 10, min = min(test_data$Q13477) -1, max = max(test_data$Q13477) +1 ),
+    P00915  = runif(n = 10, min = min(test_data$P00915) -1, max = max(test_data$P00915) +1 ),
+    hsa.miR.5680 = runif(n = 10, min = min(test_data$hsa.miR.5680) -1, max = max(test_data$hsa.miR.5680) +1 )
+  )
+
+my_prediction <- predict(trained_model, newdata = my_data)
+my_prediction[["data"]]
+```
+
+```{r}
+my_data <- test_data[1,1:3]
+my_prediction <- predict(trained_model, newdata = my_data)
+head(as.data.frame(my_prediction))
+```
+
+
+```{r}
+r = resample(lrn, clasif.task, rdesc, measures = list(mcc, ppv, npv, mmce))
+r$pred
+```
+
+
+```{r}
+
+
+potme = generateHyperParsEffectData(tune.pars)
+plotHyperParsEffect(potme, x = "iteration", y = "mcc.test.mean",
+  plot.type = "line")
+
+
+```
+
+
+# Drzewo decyzyjne
+
+```{r}
+library(mlr)
+rdesc <- makeResampleDesc("Subsample",
+  iters = 50L, predict = "both", stratify = TRUE
+)
+ ps = makeParamSet( 
+makeDiscreteParam("minsplit", values=seq(5,10,1)), makeDiscreteParam("minbucket", values=seq(round(5/3,0), round(10/3,0), 1)), 
+makeNumericParam("cp", lower = 0.01, upper = 0.05), makeDiscreteParam("maxcompete", values=6), makeDiscreteParam("usesurrogate", values=0), makeDiscreteParam("maxdepth", values=10) )
+
+lrn = makeLearner('classif.rpart',
+                  predict.type = "prob",
+                  id = "logreg")
+
+ctrl = mlr::makeTuneControlRandom(maxit = 10, tune.threshold = TRUE)
+
+clasif.task <-
+  makeClassifTask(
+    id = "regression",
+    data = test_data,
+    target = "status",
+    positive = "DRE"
+        )
+      
+# clasif.task <- normalizeFeatures(clasif.task, method = "standardize")
+# Analysis ----------------------------------------------------------------
+
+
+tune.pars = tuneParams(learner = lrn, 
+                       task = clasif.task, 
+                       resampling = rdesc,
+                      measures = list(mcc, ppv, npv, mmce), 
+                      par.set = ps,
+                     control = ctrl, 
+                     show.info = TRUE)
+
+row <-
+  tibble(
+    features = paste(names(test_data)[-ncol(test_data)], collapse = " + "),
+       n = nrow(test_data),
+          thr = tune.pars$threshold
+        ) %>% 
+        bind_cols(
+          tune.pars$y %>% 
+            enframe %>%
+            spread(name, value)
+        )
+row
+```
+
+```{r}
+dtree <- setHyperPars(lrn, par.vals = tune.pars$x)
+set.seed(1000) 
+dtree_train <- train(learner=dtree, task=clasif.task) 
+getLearnerModel(dtree_train)
+```
+
+```{r}
+rpart.plot::rpart.plot(dtree_train$learner.model, roundint=FALSE, varlen=3, type = 3, clip.right.labs = FALSE, yesno = 2)
+```
+```{r}
+rpart.plot::rpart.rules(dtree_train$learner.model, roundint = FALSE)
+```
+
+
+```{r}
+data_united <- 
+  data_filtered_m %>% 
+  reduce(full_join, by = c(target$target_variable, target$id_variable)) %>% 
+  select(-VaEEG_age_months, -had_VaEEG, -target$id_variable, -starts_with("treatment")) %>% 
+  select(-target$target_variable, everything()) 
+```
+

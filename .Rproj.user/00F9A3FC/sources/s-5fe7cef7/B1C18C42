@@ -1,0 +1,27 @@
+{
+    "id": "B1C18C42",
+    "path": "~/code/paczka_R/multimodal_classifiers.Rmd",
+    "project_path": null,
+    "type": "r_markdown",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1659951995437.0,
+    "source_on_save": false,
+    "relative_order": 10,
+    "properties": {
+        "chunk_output_type": "inline",
+        "source_window_id": "w8bc2s8czsbat",
+        "Source": "Source",
+        "cursorPosition": "136,0",
+        "scrollLine": "114"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1659117578,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1659951998098,
+    "read_only": false,
+    "read_only_alternatives": []
+}

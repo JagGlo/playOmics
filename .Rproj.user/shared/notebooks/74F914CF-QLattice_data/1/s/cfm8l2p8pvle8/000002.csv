@@ -1,0 +1,18 @@
+"0","```r
+brca_data_w_meta <- 
+  read_csv(\"~/code/test_data/QLattice_data/brca_data_w_meta.csv\") %>% 
+  add_column(id = 1:nrow(.), .before = 1)
+```"
+"1","Rows: 705 Columns: 1938
+── Column specification ────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Delimiter: \",\"
+chr    (1): patient.clinical.cqcf.histological.type
+dbl (1937): rs_CLEC3A, rs_CPB1, rs_SCGB2A2, rs_SCGB1D2, rs_TFF1, rs_MUCL1, rs_GSTM1, rs_PIP, rs_ADIPOQ, rs_ADH1B, rs_S100A7, rs_...
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+"
+"0","```r
+# vital.status
+# patient.clinical.cqcf.histological.type -> \"infiltrating ductal carcinoma\",\"infiltrating lobular carcinoma\"
+```"

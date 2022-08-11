@@ -1,0 +1,48 @@
+data_summary <- function(data){
+
+  data_summary <-
+    lapply(seq_along(data), function(i){
+
+      data.frame(
+        "Dataset name" = names(data[i]),
+        "Number of samples" = nrow(data[[i]]),
+        "Number of variables" = ncol(data[[i]]),
+        "Numeric columns" =  length(data[[i]][unlist(lapply(data[[i]], is.numeric))]),
+        "Character columns" =  length(data[[i]][unlist(lapply(data[[i]], is.character))]),
+        "Factor columns" =  length(data[[i]][unlist(lapply(data[[i]], is.factor))])
+      )
+
+    }) %>%
+    bind_rows()
+
+  return(data_summary)
+}
+
+
+# data_overview <- function(data){
+#   data_overview <-
+#     # lapply(seq_along(data), function(i){
+#       # overview <-
+#         data %>%
+#         skimr::skim() %>%
+#         partition()
+#     # })
+#
+#   # names(data_overview) <- names(data)
+#
+#   return(data_overview)
+# }
+
+# present_numeric_overview <- function(overview){
+#   overview[["numeric"]] %>%
+#     rename(variable_name = skim_variable) %>%
+#     View()
+# }
+
+plot_density_numeric <- function(data){
+  data[unlist(lapply(data, is.numeric))] %>%
+    gather(key, value) %>%
+    ggplot(aes(value, color = key)) +
+    geom_density(show.legend = F) +
+    theme_minimal()
+}

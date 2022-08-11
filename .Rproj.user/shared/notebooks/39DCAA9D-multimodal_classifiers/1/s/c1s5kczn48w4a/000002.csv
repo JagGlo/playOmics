@@ -1,0 +1,56 @@
+"0","```r
+
+models_to_eval <- 
+model_stats %>% 
+  filter(mcc.test.mean > 0.8)
+
+pbapply::pblapply(1:as.numeric(count(models_to_eval)), function(i) {
+
+  vars <-
+    models_to_eval[[i, \"features\"]] %>%
+    str_split(pattern = \"\\s\\+\\s\") %>%
+    unlist()
+
+  fields <-
+    vars %>%
+    match(names(data_united))
+
+  data <-
+    data_united[, c(fields, ncol(data_united))] %>%
+    filter(complete.cases(.))
+  
+  if(length(vars) == 2) {
+   p <-
+     data %>%
+      ggplot(aes_(x =as.name(vars[1]), y = as.name(vars[2]), color = as.name(\"status\"))) +
+      geom_point() +
+      theme_bw()
+   
+    ggsave(paste0(\"/home/rstudio/EPIMARKER/classifiers/WP1_models/plots/2_vars/\",i, \"_\", vars[1], \"_vs_\", vars[2], \".png\"), plot = p, width = 6, height = 5)
+  } else if(length(vars) == 3){
+     p <-
+      plotly::plot_ly(data,
+        x = as.formula(paste0(\"~\", vars[1])),
+        y = as.formula(paste0(\"~\", vars[2])),
+        z = as.formula(paste0(\"~\", vars[3])),
+        color = ~status,
+        colors = c(\"#0C4B8E\", \"#BF382A\"),
+        type = \"scatter3d\",
+        mode = \"markers\"
+      )
+    
+     htmlwidgets::saveWidget(
+      widget = p,
+      paste0(
+        \"/home/rstudio/EPIMARKER/classifiers/WP1_models/plots/3_vars/\",
+       i, \"_\", vars[1], \"_vs_\", vars[2], \"_vs_\", vars[3],
+        \".html\"
+      ),
+      selfcontained = FALSE,
+      libdir = \"/home/rstudio/EPIMARKER/classifiers/WP1_models/plots/3_vars/static\"
+    )
+  }
+ 
+})
+
+```"

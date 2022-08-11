@@ -1,0 +1,11 @@
+"0","```r
+bind_cols(
+  my_data,
+  as.data.frame(my_prediction[[\"data\"]])
+) %>% 
+  ggplot(aes(MFSD4A, MXD3, color = response)) + 
+  geom_point()+
+  geom_abline(intercept = intercept , slope = slope, color = \"red\", size = 2) +
+  xlim(0,10)+
+  ylim(-10,10)
+```"

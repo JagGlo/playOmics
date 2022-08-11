@@ -1,0 +1,10 @@
+"0","```r
+# od FH: 0-10, 11-40, >40
+# data$proteomics_data %>%
+#   left_join(proteom_metadata %>% ungroup() %>% select(sample_age_days, patient_code)) %>% 
+#   mutate(sample_age_weeks = as.integer(sample_age_days/7),
+#          age_groups = cut(sample_age_weeks, breaks=c(min(sample_age_weeks), 11, 41, max(sample_age_weeks)+1), right = FALSE)
+#          ) %>% 
+#   select(-sample_age_weeks, -sample_age_days) %>% 
+# plot_PCA(age_groups, \"Age groups [weeks]\", \"Dane proteomiczne\")
+```"

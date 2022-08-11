@@ -1,0 +1,9 @@
+"0","```r
+test_data <-
+# pierwszy normalny model
+data_united %>% 
+  select(MXD3, MFSD4A, status) %>% 
+  na.omit() 
+
+test_data
+```"

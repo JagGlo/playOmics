@@ -1,0 +1,4 @@
+"0","```r
+r = resample(lrn, clasif.task, rdesc, measures = list(mcc, ppv, npv, mmce))
+r$pred
+```"

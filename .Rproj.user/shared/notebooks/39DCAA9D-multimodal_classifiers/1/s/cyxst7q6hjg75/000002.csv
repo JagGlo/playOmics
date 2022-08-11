@@ -1,0 +1,4 @@
+"0","```r
+mlflow_rfunc_serve(\"tidymodels_experiment6/model\",
+                   data_to_fit = data_to_fit[1:3,])
+```"

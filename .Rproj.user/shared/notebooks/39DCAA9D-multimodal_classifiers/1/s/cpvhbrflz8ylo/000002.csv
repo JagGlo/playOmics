@@ -1,0 +1,48 @@
+"0","```r
+library(mlr)
+rdesc <- makeResampleDesc(\"Subsample\",
+  iters = 50L, predict = \"both\", stratify = TRUE
+)
+ ps = makeParamSet( 
+makeDiscreteParam(\"minsplit\", values=seq(5,10,1)), makeDiscreteParam(\"minbucket\", values=seq(round(5/3,0), round(10/3,0), 1)), 
+makeNumericParam(\"cp\", lower = 0.01, upper = 0.05), makeDiscreteParam(\"maxcompete\", values=6), makeDiscreteParam(\"usesurrogate\", values=0), makeDiscreteParam(\"maxdepth\", values=10) )
+
+lrn = makeLearner('classif.rpart',
+                  predict.type = \"prob\",
+                  id = \"logreg\")
+
+ctrl = mlr::makeTuneControlRandom(maxit = 10, tune.threshold = TRUE)
+
+clasif.task <-
+  makeClassifTask(
+    id = \"regression\",
+    data = test_data,
+    target = \"status\",
+    positive = \"DRE\"
+        )
+      
+# clasif.task <- normalizeFeatures(clasif.task, method = \"standardize\")
+# Analysis ----------------------------------------------------------------
+
+
+tune.pars = tuneParams(learner = lrn, 
+                       task = clasif.task, 
+                       resampling = rdesc,
+                      measures = list(mcc, ppv, npv, mmce), 
+                      par.set = ps,
+                     control = ctrl, 
+                     show.info = TRUE)
+
+row <-
+  tibble(
+    features = paste(names(test_data)[-ncol(test_data)], collapse = \" + \"),
+       n = nrow(test_data),
+          thr = tune.pars$threshold
+        ) %>% 
+        bind_cols(
+          tune.pars$y %>% 
+            enframe %>%
+            spread(name, value)
+        )
+row
+```"

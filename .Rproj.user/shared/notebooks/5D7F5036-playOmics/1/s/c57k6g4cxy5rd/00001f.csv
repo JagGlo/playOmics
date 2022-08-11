@@ -1,0 +1,29 @@
+"0","data_filtered <- 
+  nested_filtering(
+    data = LAML_data_prepared, 
+    target = target, 
+    filter_name = ""auc"", 
+    cutoff_method = ""top_n"", 
+    cutoff_treshold = 10,
+    n_threads = 10)
+"
+"1","Called from: "
+"1","rank_features(training_data, target, filter_name = filter_name, 
+"
+"1","    n_threads = n_threads)
+"
+"0","  ranked_features <-"
+"0","    sapply(names(data), function(dataframe) {"
+"0","      mydata <- data[[dataframe]] %>% select(-target$id_variable)"
+"0",""
+"0","      task <- mlr3::as_task_classif(mydata, target = target$target_variable, positive = target$positive_class)"
+"0","      filter <- mlr3filters::flt(filter_name)"
+"0",""
+"0","      # set threads for all filters which support it"
+"0","      mlr3::set_threads(filter, n_threads)"
+"0",""
+"0","      ranked_features <- as.data.frame(filter$calculate(task))"
+"0","    }, USE.NAMES = TRUE, simplify = F)"
+"2","Error in as.data.frame.default(filter$calculate(task)) : 
+  cannot coerce class ‘c(""FilterAUC"", ""Filter"", ""R6"")’ to a data.frame
+"

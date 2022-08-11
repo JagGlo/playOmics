@@ -1,0 +1,10 @@
+"0","```r
+data_united <- 
+  data_filtered_m %>% 
+  reduce(full_join, by = c(target$target_variable, target$id_variable)) %>% 
+  select(-VaEEG_age_months, -had_VaEEG, -target$id_variable, -starts_with(\"treatment\")) %>% 
+  select(-target$target_variable, everything()) 
+```"
+"1","Error in reduce(., full_join, by = c(target$target_variable, target$id_variable)) : 
+  could not find function \"reduce\"
+"

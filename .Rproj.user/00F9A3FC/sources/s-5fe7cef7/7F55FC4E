@@ -1,0 +1,27 @@
+{
+    "id": "7F55FC4E",
+    "path": "~/code/paczka_R/QLattice_data.Rmd",
+    "project_path": null,
+    "type": "r_markdown",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1659940271884.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "chunk_output_type": "inline",
+        "source_window_id": "w8bc2s8czsbat",
+        "Source": "Source",
+        "cursorPosition": "138,0",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1659702070,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1659702070,
+    "read_only": false,
+    "read_only_alternatives": []
+}

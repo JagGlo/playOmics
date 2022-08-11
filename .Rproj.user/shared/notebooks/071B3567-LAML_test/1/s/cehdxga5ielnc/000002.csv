@@ -1,0 +1,12 @@
+"0","```r
+# library(tidymodels)
+
+LAML_data_filter <-
+LAML_data %>% 
+  lapply(function(data){
+   to_remove <- caret::nearZeroVar(data)
+   if(length(to_remove) >0){
+    data <- data[, -to_remove]
+   } else data
+    }) 
+```"

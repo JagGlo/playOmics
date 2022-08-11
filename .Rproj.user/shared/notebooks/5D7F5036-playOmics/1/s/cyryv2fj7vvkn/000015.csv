@@ -1,0 +1,6 @@
+"0","# let's replace all zeros with NA to pretend missing data"
+"0","LAML_data[[""miRNA""]][LAML_data[[""miRNA""]] == 0] <- NA"
+"0","# apply filter"
+"0","LAML_data[[""miRNA""]] <- filter_missing(data = LAML_data[[""miRNA""]],"
+"0","                                       pcent_of_samples = 0.5)"
+"0","LAML_data[[""miRNA""]]"

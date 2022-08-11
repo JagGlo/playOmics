@@ -1,0 +1,10 @@
+"0","```r
+target <-
+  define_target(phenotype_df = \"clinical_data\",
+              target_variable = \"status\",
+              id_variable = \"patient_code\",
+              positive_class_indication = \"DRE\")
+
+data_prepared <-
+  prepare_data_for_modelling(data = data, target = target)
+```"

@@ -1,0 +1,27 @@
+{
+    "id": "A9BF8BB8",
+    "path": "~/code/paczka_R/LAML_test.Rmd",
+    "project_path": null,
+    "type": "r_markdown",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1659730282383.0,
+    "source_on_save": false,
+    "relative_order": 6,
+    "properties": {
+        "chunk_output_type": "inline",
+        "source_window_id": "w8bc2s8czsbat",
+        "Source": "Source",
+        "cursorPosition": "134,0",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1654662370,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1654662370,
+    "read_only": false,
+    "read_only_alternatives": []
+}

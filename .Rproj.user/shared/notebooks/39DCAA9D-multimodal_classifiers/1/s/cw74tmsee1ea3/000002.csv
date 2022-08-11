@@ -1,0 +1,4 @@
+"0","```r
+small_models <-
+create_multiple_models(data_filtered_m, \"tidymodels_experiment_mlflow_test_me2\", n_cores = 2)
+```"

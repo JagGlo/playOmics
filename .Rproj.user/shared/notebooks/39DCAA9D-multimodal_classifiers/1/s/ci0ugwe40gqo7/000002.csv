@@ -1,0 +1,4 @@
+"0","```r
+lrn = setPredictThreshold(lrn, predict.threshold = tune.pars$threshold)
+trained_model <- train(lrn, clasif.task)
+```"

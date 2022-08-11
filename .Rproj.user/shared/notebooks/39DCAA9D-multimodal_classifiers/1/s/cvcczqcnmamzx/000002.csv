@@ -1,0 +1,22 @@
+"0","```r
+molecules_from_model <-
+models_to_eval %>% 
+  arrange(desc(mcc.test.mean)) %>% 
+  select(mcc.test.mean, features) %>% 
+  separate(features, into = c(\"feature1\", \"feature2\", \"feature3\"), sep = \"\\+\", remove = F) %>% 
+  gather(feature_no, feature_name, c(feature1, feature2, feature3)) %>% 
+  mutate(feature_name = str_trim(feature_name, \"both\")) %>% 
+  filter(!is.na(feature_name))
+
+molecules_from_model <-
+bind_cols(
+  molecules_from_model %>% 
+    group_by(feature_name) %>% 
+    count() %>% 
+    arrange(desc(n)) %>% 
+    rename(appears_in_n_models = n),
+  models_to_eval %>% count() %>% rename(n_models = n)
+) %>% 
+  mutate(appears_in_pcent = percent(appears_in_n_models/n_models, accuracy = 1)) %>% 
+  select(-n_models)
+```"

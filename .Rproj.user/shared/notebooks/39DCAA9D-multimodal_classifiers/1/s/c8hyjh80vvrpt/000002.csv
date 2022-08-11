@@ -1,0 +1,14 @@
+"0","```r
+mlflow_load_model(\"/home/rstudio/code/paczka_R/tidymodels_experiment_mlflow_test/mlflow/0/934bd94276604d6eb0e7b14aa68fcf9c/artifacts/had_VaEEG + gene_result_of_mutational_analysis_TSC_2 + ENSG00000278842\")
+
+```"
+"1","<crate> 2.01 MB
+* function: 91.86 kB
+* `fitted_model`: 2.01 MB
+function(data_to_fit) {
+          dplyr::bind_cols(
+            workflows:::predict.workflow(fitted_model, as.data.frame(data_to_fit), type = \"class\"),
+            workflows:::predict.workflow(fitted_model, as.data.frame(data_to_fit), type = \"prob\")
+          )
+         }
+"

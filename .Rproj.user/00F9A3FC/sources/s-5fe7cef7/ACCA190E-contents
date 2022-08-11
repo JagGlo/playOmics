@@ -1,0 +1,16 @@
+#' Title
+#'
+#' description
+#'
+#' @param method2order method to order colors (\code{"hsv"} or \code{"cluster"})
+#'
+#' @return None
+#'
+#' @examples
+#' plot_crayons()
+#'
+#' @export
+#'
+#'
+library(skimr)
+library(ggupset)

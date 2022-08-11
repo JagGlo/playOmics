@@ -1,0 +1,10 @@
+"0","```r
+model_stats_tm <-
+small_models %>% 
+  bind_rows()
+
+model_stats_tm %>% 
+  ggplot(aes(mcc)) +
+  geom_histogram() +
+  theme_minimal()
+```"

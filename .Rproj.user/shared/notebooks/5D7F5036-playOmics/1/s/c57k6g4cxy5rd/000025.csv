@@ -1,0 +1,18 @@
+"0","seeme<-filter$calculate(task)"
+"0","View(seeme)"
+"0","usethis::use_package(""data.tab;e"", ""Suggests"")"
+"1","[34mℹ[39m The package `data.tab;e` is required.
+[31m✖[39m Would you like to install it?
+"
+"1",""
+"1","
+"
+"1","1: Yes"
+"1","
+"
+"1","2: No"
+"1","
+"
+"1",""
+"1","
+"

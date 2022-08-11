@@ -1,0 +1,7 @@
+"0","LAML_data$RNAseq %>%
+  left_join(LAML_data$clinical_data %>% select(ID, gender)) %>% 
+  select(-ID) %>% 
+  plot_PCA(gender, ""Sex"", ""RNA"")
+"
+"1","[38;5;232mJoining, by = ""ID""[39m
+"

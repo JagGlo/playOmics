@@ -1,0 +1,51 @@
+"0","```r
+molecules_to_count <- unique(molecules_from_model$feature_name)
+
+molecules_to_count <-
+data_united %>% 
+  mutate_at(vars(contains(\"TSC\"), is_cortical_tubers_exists, is_sega_exists,starts_with(\"sex\")), as.factor)
+
+molecules_stats <-
+molecules_to_count %>% 
+  group_by(status) %>% 
+   summarise(n = n()) %>% 
+  left_join(
+    molecules_to_count %>% 
+      group_by(status) %>% 
+       summarise(across(where(is.factor), 
+                        list(numbers = ~ sum(.x == 1, na.rm = TRUE),
+                              n = ~sum(!is.na(.x))))) %>% 
+      gather(key, value, - status) %>% 
+      separate(key, c(\"key\", \"what\"), sep = \"_(?=h|n)\") %>% 
+      spread(what, value) %>% 
+      mutate(pcent = scales::percent(numbers/n, accuracy =1)) %>% 
+      mutate(numbers = paste0(numbers, \" (\", pcent, \")\")) %>% 
+      select(-pcent, -n) %>% 
+      spread(key, numbers)
+  ) %>% 
+  left_join(
+   molecules_to_count %>% 
+      group_by(status) %>% 
+        summarise(across(where(is.numeric), 
+                        list(median = ~ median(.x, na.rm = TRUE), 
+                             Q1 = ~ quantile(.x, 0.25, na.rm = TRUE), 
+                             Q3 = ~ quantile(.x, 0.75, na.rm = TRUE)))) %>% 
+       mutate_if(is.numeric, round, 2) %>% 
+       gather(key, value, - status) %>% 
+      separate(key, c(\"key\", \"what\"), sep = \"_(?=Q|median)\") %>% 
+      spread(what, value) %>% 
+      mutate(numbers = paste0(median, \" (\", Q1, \"-\", Q3, \")\")) %>% 
+      select(-median, -Q1, -Q3) %>% 
+      spread(key, numbers)
+      ) %>% 
+  gather(variable, value, - status) %>% 
+  spread(status, value)
+  # write_csv(\"data_for_directions.csv\", na = \"\")
+
+molecules_from_model <-
+molecules_from_model %>% 
+  left_join(molecules_stats, by = c(\"feature_name\" = \"variable\")) 
+
+molecules_from_model
+  # write_csv(here::here(\"classifiers/wp1_directions.csv\"), na = \"\")
+```"

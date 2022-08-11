@@ -1,0 +1,18 @@
+"0","```r
+ molecules_to_count %>% 
+  select(which(sapply(.,class)==\"numeric\"), \"status\") %>% 
+  gather(key, value, -status) %>% 
+  arrange(key) %>% 
+  split(., .$key) %>% 
+    lapply(function(x) {
+      x %>%  
+      ggplot(aes(x = status, y = value, color = status))+
+      geom_boxplot() +
+      geom_jitter(height = 0) +
+      theme_bw() +
+      labs(title = x$key[1], y = \"value\", x = NULL) +
+      theme(legend.position = \"none\")
+      
+      # ggsave(paste0(\"~/EPISTOP/additional/results/directions_in_models/\", x$key[1], \".png\"), width = 6, height = 5)
+    })
+```"
