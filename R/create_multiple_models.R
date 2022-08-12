@@ -5,13 +5,13 @@ log_metrics <- function(metrics, run_id) {
     parameter_name <- parameter_names[[i]]
     parameter_value <- parameter_values[[i]]
     if (!is.null(parameter_value)) {
-      mlflow_log_metric(parameter_name, parameter_value, run_id = run_id)
+      mlflow::mlflow_log_metric(parameter_name, parameter_value, run_id = run_id)
     }
   }
   metrics
 }
 
-#'
+#' Create small models
 #'
 #'
 #'
@@ -23,11 +23,16 @@ log_metrics <- function(metrics, run_id) {
 #'
 #' @export
 
-create_multiple_models <- function(data_filtered, experiment_name, n_cores, n_prop = 2/3, n_repeats = 50){
+create_multiple_models <- function(data_filtered, experiment_name, n_cores = detectCores()/4, n_prop = 2/3, n_repeats = 50){
 
-  #if(!directory exist)
   directory <- paste0(getwd(), '/', experiment_name)
+  if(!dir.exists(directory)){
   dir.create(directory)
+  } else {
+  logger::log_error("Experiment with given name already exists. Please introduce different name")
+  stop("Experiment with given name already exists. Please introduce different name")
+  }
+
   last_run <- Sys.Date()
 
   data_united <-
@@ -48,45 +53,34 @@ create_multiple_models <- function(data_filtered, experiment_name, n_cores, n_pr
 
   # Save
   save(data_united, directory, chunks, last_run, file = paste(directory, "raw_data.RData", sep = "/"))
-  # browser()
 
   mlflow_directory <- paste(directory, "mlflow", sep = "/")
   dir.create(mlflow_directory)
-  mlflow_set_tracking_uri(mlflow_directory)
-  mlflow_set_experiment(
+  mlflow::mlflow_set_tracking_uri(mlflow_directory)
+  mlflow::mlflow_set_experiment(
     experiment_name = experiment_name
   )
-
-  # opts <- furrr::furrr_options(
-  #   seed = TRUE
-  # )
-
-  # nCores <- detectCores()/4
-  # future::plan(future::multisession)
-  # cl <- parallel::makeCluster(n_cores)
-  # doParallel::registerDoParallel(cl)
+  logger::log_info("Experiment {experiment_name} created")
   cl <- parallel::makeForkCluster(n_cores)
-  tictoc::tic()
+
+  logger::log_info("Starting modelling experiment")
   models <-
-    chunks %>%
-    # furrr::future_map(function(single_model) {
+    chunks[1:4] %>%
     parallel::parLapplyLB(cl, ., function(single_model){
-      # lapply(function(single_model) {
 
-
-      # browser()
-      set.seed(sample.int(1:100000, n = 1))
+      set.seed(sample(1:100000, size = 1))
       data <-
         data_united[, single_model] %>%
         na.omit()
 
       model_name <- paste(colnames(data[-ncol(data)]), collapse = " + ")
+
       tryCatch({
 
-        mlflow_start_run(nested = T)
-        run = mlflow_get_run()
+        mlflow::mlflow_start_run(nested = T)
+        run = mlflow::mlflow_get_run()
         # log model name
-        mlflow_log_param("model_name", model_name, run_id = run$run_uuid)
+        mlflow::mlflow_log_param("model_name", model_name, run_id = run$run_uuid)
 
         n_groups <-
           data %>%
@@ -95,39 +89,35 @@ create_multiple_models <- function(data_filtered, experiment_name, n_cores, n_pr
           spread(target$target_variable, n) %>%
           rename_with( ~ paste0("n_", .x))
 
-        lapply(colnames(n_groups), function(i) mlflow_log_param(i, pull(n_groups[i]),  run_id = run$run_uuid))
+        lapply(colnames(n_groups), function(i) mlflow::mlflow_log_param(i, pull(n_groups[i]),  run_id = run$run_uuid))
 
         # Define model
         data_recipe <-
-          recipe(data) %>%
-          update_role(target$target_variable, new_role = "outcome") %>%
-          # update_role(target$id_variable, new_role = "id variable") %>%
-          update_role(has_role(NA), new_role = "predictor") %>%
-          step_corr(all_predictors(), threshold = 0.7, method = "spearman") %>%
-          step_zv(all_predictors())
+          recipes::recipe(data) %>%
+          recipes::update_role(target$target_variable, new_role = "outcome") %>%
+          recipes::update_role(recipes::has_role(NA), new_role = "predictor")
         # step_normalize(all_predictors()) #should the data be normalized?
 
-        log_spec <- # your model specification
-          logistic_reg() %>%  # model type
-          set_engine(engine = "glm") %>%  # model engine
-          set_mode("classification")   # model mode
+        model_spec <- # your model specification
+          parsnip::logistic_reg() %>%  # model type
+          parsnip::set_engine(engine = "glm") %>%  # model engine
+          parsnip::set_mode("classification")   # model mode
 
         # Subsampling
-        # if else?
-        resample <- mc_cv(data, prop = n_prop, times = n_repeats, strata = target$target_variable)
+        resample <- rsample::mc_cv(data, prop = n_prop, times = n_repeats, strata = target$target_variable)
 
-        mlflow_log_param("resampling strategy", "mc_cv")
-        mlflow_log_param("prop", n_prop)
-        mlflow_log_param("times", n_repeats)
+        mlflow::mlflow_log_param("resampling strategy", "mc_cv")
+        mlflow::mlflow_log_param("prop", n_prop)
+        mlflow::mlflow_log_param("times", n_repeats)
 
         # Define workflow
-        log_wflow <- # new workflow object
-          workflow() %>% # use workflow function
-          add_recipe(data_recipe) %>%   # use the recipe
-          add_model(log_spec)
+        model_wflow <- # new workflow object
+          workflows::workflow() %>% # use workflow function
+          workflows::add_recipe(data_recipe) %>%   # use the recipe
+          workflows::add_model(model_spec)
 
-        log_res <-
-          log_wflow %>%
+        model_res <-
+          model_wflow %>%
           tune::fit_resamples(
             resamples = resample,
             metrics = metric_set(
@@ -149,9 +139,9 @@ create_multiple_models <- function(data_filtered, experiment_name, n_cores, n_pr
 
         results <-
           log_res %>%
-          collect_metrics(summarize = T) %>%
-          select(.metric, mean) %>%
-          spread(.metric, mean)
+          tune::collect_metrics(summarize = T) %>%
+          tune::select(.metric, mean) %>%
+          tune::spread(.metric, mean)
 
         log_metrics(results,  run_id = run$run_uuid)
 
@@ -171,19 +161,19 @@ create_multiple_models <- function(data_filtered, experiment_name, n_cores, n_pr
         #create temporary folder
         dir.create(paste(directory,run$run_uuid, sep = "/"))
         artifact_dir <- paste(directory,run$run_uuid, sep = "/")
-        mlflow_save_model(crated_model, artifact_dir)
-        mlflow_log_artifact(artifact_dir, artifact_path = "model")
+        mlflow::mlflow_save_model(crated_model, artifact_dir)
+        mlflow::mlflow_log_artifact(artifact_dir, artifact_path = "model")
 
         # save raw data
         data_dir <-paste0(artifact_dir,"/data.rds")
         ## temporary data save
         saveRDS(data, file = data_dir)
         ## log data to experiment
-        mlflow_log_artifact(data_dir,  run_id = run$run_uuid)
+        mlflow::mlflow_log_artifact(data_dir,  run_id = run$run_uuid)
         #remove directiry
         unlink(artifact_dir, recursive=TRUE)
         # end mlflow run
-        mlflow_end_run()
+        mlflow::mlflow_end_run()
 
         # return metrics
         return(results)
@@ -192,7 +182,7 @@ create_multiple_models <- function(data_filtered, experiment_name, n_cores, n_pr
         return(NULL)
       })
     })
-  tictoc::toc()
+  logger::log_info("Modelling experiment ended")
 
   # save models' stats
   save(models,file = paste(directory, "models_stats.RData", sep = "/"))

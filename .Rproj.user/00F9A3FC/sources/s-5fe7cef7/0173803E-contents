@@ -1,16 +1,21 @@
-#' Select features
+#' Select variables
 #'
+#' Select variables related to a target. Features are selected based on ranking that is created depending of selected method.
+#' Then, three methods of selection can be chosen:
 #'
+#' @param data Name of a dataframe name containing the phenotype/clinical data
+#' @param target Name of a column with statuses
+#' @param filter_name Name of a filter to be applied (https://mlr.mlr-org.com/articles/tutorial/filter_methods.html#current-methods, column "Classif")
+#' @param cutoff_method One of the following: top_n, percentage, threshold
+#' @param cutoff_treshold Depending of a cutoff method, a number of features to be selected, % of variables to be selected, a threshold above which features are selected.
+#' @param n_threads Number of threads for feature selection (as default set to 1)
 #'
-#' @param
-#
 #' @return
 #'
 #' @examples
 #' @export
-
-nested_filtering <- function(data, target, filter_name = "auc", cutoff_method,
-                             cutoff_treshold, n_threads = 1, nfold = 5) {
+#'
+nested_filtering <- function(data, target, filter_name = "auc", cutoff_method, cutoff_treshold, n_threads = 1, nfold = 5) {
   sapply(names(data), function(dataframe) {
     logger::log_info("Ranking {dataframe} data")
     resample <-
@@ -30,23 +35,6 @@ nested_filtering <- function(data, target, filter_name = "auc", cutoff_method,
       select_features(data[[dataframe]], ranked_features$ranking, target, cutoff_method, cutoff_treshold)
   }, USE.NAMES = TRUE, simplify = F)
 }
-
-#' Select variables
-#'
-#' Select variables related to a target. Features are selected based on ranking that is created depending of selected method.
-#' Then, three methods of selection can be chosen:
-#'
-#' @param data Name of a dataframe name containing the phenotype/clinical data
-#' @param target Name of a column with statuses
-#' @param filter_name Name of a filter to be applied (https://mlr.mlr-org.com/articles/tutorial/filter_methods.html#current-methods, column "Classif")
-#' @param cutoff_method One of the following: top_n, percentage, threshold
-#' @param cutoff_treshold Depending of a cutoff method, a number of features to be selected, % of variables to be selected, a threshold above which features are selected.
-#' @param n_threads Number of threads for feature selection (as default set to 1)
-#'
-#' @return
-#'
-#' @examples
-#' @export define_target
 
 rank_features <- function(data, target, filter_name, n_threads = 1) {
 

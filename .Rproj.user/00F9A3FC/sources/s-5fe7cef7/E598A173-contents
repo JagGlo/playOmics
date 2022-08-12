@@ -224,10 +224,14 @@ LAML_data_filtered <-
 
 # Classification
 
+In the current working directory, a folder is created. Experiment name must be unique.
+
+In this step, data will finally connect into one dataframe.
+
 LR + SVM?
 
 ```{r}
-my_experiment_name <- "qlattice_brca_experiment_rna_only"
+my_experiment_name <- "LAML_experiment5"
 
 small_models <-
 create_multiple_models(
@@ -243,6 +247,6 @@ results <- get_metrics_for_all_data(experiment_name = my_experiment_name, n_core
 ```
 
 ```{r}
-results_GUI(results)
+# results_GUI(results)
 ```
 

@@ -5,20 +5,20 @@
 \title{Define your target}
 \usage{
 define_target(
-  phenotype_df,
   target_variable,
-  id_variable,
-  positive_class_indication
+  positive_class_indication,
+  phenotype_df,
+  id_variable
 )
 }
 \arguments{
-\item{phenotype_df}{Name of a dataframe name containing the phenotype/clinical data}
-
 \item{target_variable}{Name of a column with statuses}
 
-\item{id_variable}{Name of a column with subjects/samples IDs}
-
 \item{positive_class_indication}{Name of a class within target variable that should be treated as success (positive outcome)}
+
+\item{phenotype_df}{Name of a dataframe name containing the phenotype/clinical data}
+
+\item{id_variable}{Name of a column with subjects/samples IDs}
 }
 \value{
 An object containing the most important information about defined target

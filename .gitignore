@@ -1,1 +1,14 @@
 inst/doc
+.Rproj.user
+.Rproj.user/
+
+# History files
+.Rhistory
+.Rapp.history
+
+# Session Data files
+.RData
+.RDataTmp
+
+# User-specific files
+.Ruserdata

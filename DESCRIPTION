@@ -13,19 +13,28 @@ RoxygenNote: 7.2.1
 Suggests: 
     data.table,
     knitr,
+    pbapply,
     rmarkdown
 VignetteBuilder: knitr
 Depends: 
     tidyverse
 Imports: 
+    carrier,
     dplyr,
     ggplot2,
     ggupset,
     logger,
+    mlflow,
     mlr3,
     mlr3filters,
+    parallel,
+    parsnip,
+    recipes,
     rlang,
     rsample,
     stringr,
     tibble,
-    tidyr
+    tidyr,
+    tune,
+    workflows,
+    yardstick
