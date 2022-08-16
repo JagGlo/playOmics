@@ -1,4 +1,0 @@
-"0","```r
-data$eeg_data_ommited <- na.omit(data$eeg_data) 
-plot_coverage(data[-2])
-```"

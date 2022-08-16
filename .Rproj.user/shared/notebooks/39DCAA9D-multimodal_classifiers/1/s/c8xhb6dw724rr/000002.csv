@@ -1,4 +1,0 @@
-"0","```r
-data <- data[-6]
-plot_coverage(data[-2])
-```"

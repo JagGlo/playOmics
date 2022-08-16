@@ -21,6 +21,7 @@ Depends:
 Imports: 
     carrier,
     dplyr,
+    factoextra,
     ggplot2,
     ggupset,
     logger,

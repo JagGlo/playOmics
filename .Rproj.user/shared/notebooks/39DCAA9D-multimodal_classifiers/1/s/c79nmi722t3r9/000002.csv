@@ -1,7 +1,0 @@
-"0","```r
-data$RNA_data %>%
-  left_join(data$clinical_data %>% select(patient_code, sex)) %>% 
-plot_PCA(sex, \"Sex\", \"RNA\")
-```"
-"1","Joining, by = \"patient_code\"
-"

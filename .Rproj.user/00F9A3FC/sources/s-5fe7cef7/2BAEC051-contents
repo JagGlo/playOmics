@@ -1,6 +1,0 @@
-create_multiple_models <- function(data){
-  browser()
-  data_united <- data %>% reduce(full_join, by = c(target$target_variable, target$id_variable))
-
-
-}

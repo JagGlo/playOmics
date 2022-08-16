@@ -19,9 +19,9 @@ check_data(dataset)
 Basic statistics for numeric data
 }
 \examples{
-For dataframe:
+#For dataframe:
 check_numeric(dataset)
-For element of a list:
+#For element of a list:
 check_numeric(my_data$dataset)
 
 }

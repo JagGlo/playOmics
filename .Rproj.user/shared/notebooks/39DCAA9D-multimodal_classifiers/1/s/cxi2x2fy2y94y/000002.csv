@@ -1,8 +1,0 @@
-"0","```r
-my_data <-
-  data.frame(
-    Q01995 =runif(n = 10, min = min(test_data$Q01995) -1, max = max(test_data$Q01995) +1 ),
-    P00915  = runif(n = 10, min = min(test_data$P00915) -1, max = max(test_data$P00915) +1 ),
-    hsa.miR.5680 = runif(n = 10, min = min(test_data$hsa.miR.5680) -1, max = max(test_data$hsa.miR.5680) +1 )
-  )
-```"

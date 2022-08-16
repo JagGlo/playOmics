@@ -1,3 +1,0 @@
-"0","```r
-small_models %>% bind_rows() %>% View()
-```"

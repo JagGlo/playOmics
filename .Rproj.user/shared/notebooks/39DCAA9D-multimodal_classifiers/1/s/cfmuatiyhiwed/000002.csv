@@ -1,9 +1,0 @@
-"0","```r
-
-
-potme = generateHyperParsEffectData(tune.pars)
-plotHyperParsEffect(potme, x = \"iteration\", y = \"mcc.test.mean\",
-  plot.type = \"line\")
-
-
-```"

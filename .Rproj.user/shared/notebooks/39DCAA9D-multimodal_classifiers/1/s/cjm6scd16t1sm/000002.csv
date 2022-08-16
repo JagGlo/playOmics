@@ -1,3 +1,0 @@
-"0","```r
-data <- connect_datasets(clinical_data, eeg_data, proteomics_data, miRNA_data, RNA_data)
-```"

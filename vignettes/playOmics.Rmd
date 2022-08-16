@@ -212,12 +212,12 @@ What's important, at this level we are still operating on each dataset separatel
 > This is a proposition and needs further tests (especially in case of data leakage - thereotically, all the data are already seen [but not all at once], which might lead to information leakage)
 
 ```{r}
-LAML_data_filtered <- 
+LAML_data_filtered <-
   nested_filtering(
-    data = LAML_data_prepared, 
-    target = target, 
-    filter_name = "auc", 
-    cutoff_method = "top_n", 
+    data = LAML_data_prepared,
+    target = target,
+    filter_name = "auc",
+    cutoff_method = "top_n",
     cutoff_treshold = 10,
     n_threads = 10)
 ```
@@ -231,19 +231,19 @@ In this step, data will finally connect into one dataframe.
 LR + SVM?
 
 ```{r}
-my_experiment_name <- "LAML_experiment5"
-
-small_models <-
-create_multiple_models(
-  data_filtered = LAML_data_filtered,
-  experiment_name = my_experiment_name,
-  n_cores = 2)
+# my_experiment_name <- "LAML_experiment5"
+# 
+# small_models <-
+# create_multiple_models(
+#   data_filtered = LAML_data_filtered,
+#   experiment_name = my_experiment_name,
+#   n_cores = 2)
 ```
 
 # Check results
 
 ```{r}
-results <- get_metrics_for_all_data(experiment_name = my_experiment_name, n_cores = 5)
+# results <- get_metrics_for_all_data(experiment_name = my_experiment_name, n_cores = 5)
 ```
 
 ```{r}

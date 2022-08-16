@@ -44,9 +44,9 @@ data_summary <- function(data){
 #'   \item B - A vector of numbers.
 #' }
 #' @examples
-#' For dataframe:
+#' #For dataframe:
 #' check_numeric(dataset)
-#' For element of a list:
+#' #For element of a list:
 #' check_numeric(my_data$dataset)
 #'
 #' @export
