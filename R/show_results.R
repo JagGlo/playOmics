@@ -9,7 +9,8 @@ shinyApp(
     DT::dataTableOutput("data"),
     DT::dataTableOutput("present_data"),
     plotlyOutput("3dplot"),
-    uiOutput("predict_dashboard")
+    uiOutput("predict_dashboard"),
+    plotOutput("explain")
   ),
 
   server <- function(input, output) {
@@ -91,8 +92,6 @@ shinyApp(
         numericInput("input1", vars[1],""),
         numericInput("input2", vars[2],""),
         numericInput("input3", vars[3], ""),
-        numericInput("input4", vars[4], ""),
-        numericInput("input5", vars[5], ""),
         actionButton("predict", "Predict"),
         htmlOutput("show_prediction")
       )
@@ -100,21 +99,42 @@ shinyApp(
     })
 
     observeEvent(input$predict, {
-      prediction_data <- data.frame(input$input1,input$input2,input$input3, input$input4, input$input5)
+      prediction_data <- data.frame(input$input1,input$input2,input$input3)
       names <- results$model_name[results$model == values$model_link]
       vars <-
         names %>%
         strsplit(split = "\\s\\+\\s") %>%
         unlist()
       colnames(prediction_data) <- vars
-      # values$prediction_data <- prediction_data
-       mymodel <- mlflow_load_model(values$model_link)
-       predicted <- mlflow_predict(mymodel, prediction_data)
+      values$prediction_data <- prediction_data
+       mymodel <- mlflow::mlflow_load_model(values$model_link)
+       predicted <- mlflow::mlflow_predict(mymodel, prediction_data)
        values$prediction_result <- predicted
     })
 
       output$show_prediction <-renderText({
         kableExtra::kable(values$prediction_result)
+      })
+
+      output$explain <- renderPlot({
+        req(!is.null(values$prediction_result))
+        values$explainer_link <- stringr::str_replace(values$model_link, "model", "explainer")
+        myexplainer <- mlflow::mlflow_load_model("/home/rstudio/code/playOmics/LAML_experiment/mlflow/0/1c4c676ddab64436b597bc67bea4897f/artifacts/explainer")
+        explained <- mlflow::mlflow_predict(myexplainer, prediction_data)
+
+        explained %>%
+          group_by(variable) %>%
+          mutate(mean_val = mean(contribution)) %>%
+          ungroup() %>%
+          mutate(variable = fct_reorder(variable, abs(mean_val))) %>%
+          ggplot(aes(contribution, variable, fill = mean_val > 0)) +
+          geom_col(data = ~distinct(., variable, mean_val),
+                   aes(mean_val, variable),
+                   alpha = 0.5) +
+          geom_boxplot(width = 0.5) +
+          theme_bw() +
+          theme(legend.position = "none") +
+          labs(y = NULL)
       })
   }
 )

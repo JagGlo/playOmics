@@ -27,10 +27,10 @@ create_multiple_models <- function(data_filtered, experiment_name, n_cores = det
 
   directory <- paste0(getwd(), '/', experiment_name)
   if(!dir.exists(directory)){
-  dir.create(directory)
+    dir.create(directory)
   } else {
-  logger::log_error("Experiment with given name already exists. Please introduce different name")
-  stop("Experiment with given name already exists. Please introduce different name")
+    logger::log_error("Experiment with given name already exists. Please introduce different name")
+    stop("Experiment with given name already exists. Please introduce different name")
   }
 
   last_run <- Sys.Date()
@@ -65,7 +65,7 @@ create_multiple_models <- function(data_filtered, experiment_name, n_cores = det
 
   logger::log_info("Starting modelling experiment")
   models <-
-    chunks[1:4] %>%
+    chunks %>%
     parallel::parLapplyLB(cl, ., function(single_model){
 
       set.seed(sample(1:100000, size = 1))
@@ -120,7 +120,7 @@ create_multiple_models <- function(data_filtered, experiment_name, n_cores = det
           model_wflow %>%
           tune::fit_resamples(
             resamples = resample,
-            metrics = metric_set(
+            metrics = yardstick::metric_set(
               yardstick::mcc,
               yardstick::recall,
               yardstick::precision,
@@ -138,15 +138,15 @@ create_multiple_models <- function(data_filtered, experiment_name, n_cores = det
           )
 
         results <-
-          log_res %>%
+          model_res %>%
           tune::collect_metrics(summarize = T) %>%
-          tune::select(.metric, mean) %>%
-          tune::spread(.metric, mean)
+          select(.metric, mean) %>%
+          spread(.metric, mean)
 
         log_metrics(results,  run_id = run$run_uuid)
 
         # create final model on complete data
-        fitted_model <- fit(log_wflow, data)
+        fitted_model <- fit(model_wflow, data)
 
         crated_model <- carrier::crate(
           function(data_to_fit) {
@@ -158,11 +158,33 @@ create_multiple_models <- function(data_filtered, experiment_name, n_cores = det
           fitted_model = fitted_model
         )
 
+        # explain prediction
+        explainer_lr <-
+          DALEXtra::explain_tidymodels(
+            fitted_model,
+            data = data,
+            y = target$target_variable,
+            label = "lr",
+            verbose = FALSE
+          )
+
+        crated_explainer <- carrier::crate(
+          function(data_to_fit) {
+            DALEX::predict_parts(
+              explainer = explainer_lr,
+              new_observation = data_to_fit,
+              type = "shap")
+          },
+          explainer_lr = explainer_lr
+        )
         #create temporary folder
         dir.create(paste(directory,run$run_uuid, sep = "/"))
         artifact_dir <- paste(directory,run$run_uuid, sep = "/")
         mlflow::mlflow_save_model(crated_model, artifact_dir)
         mlflow::mlflow_log_artifact(artifact_dir, artifact_path = "model")
+
+        mlflow::mlflow_save_model(crated_explainer, artifact_dir)
+        mlflow::mlflow_log_artifact(artifact_dir, artifact_path = "explainer")
 
         # save raw data
         data_dir <-paste0(artifact_dir,"/data.rds")
@@ -179,6 +201,7 @@ create_multiple_models <- function(data_filtered, experiment_name, n_cores = det
         return(results)
         # })
       }, error = function(error_condition) {
+        message(error_condition)
         return(NULL)
       })
     })

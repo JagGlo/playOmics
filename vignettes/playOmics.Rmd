@@ -231,22 +231,22 @@ In this step, data will finally connect into one dataframe.
 LR + SVM?
 
 ```{r}
-# my_experiment_name <- "LAML_experiment5"
-# 
-# small_models <-
-# create_multiple_models(
-#   data_filtered = LAML_data_filtered,
-#   experiment_name = my_experiment_name,
-#   n_cores = 2)
+my_experiment_name <- "LAML_experiment2"
+
+small_models <-
+create_multiple_models(
+  data_filtered = LAML_data_filtered,
+  experiment_name = my_experiment_name,
+  n_cores = 5)
 ```
 
 # Check results
 
 ```{r}
-# results <- get_metrics_for_all_data(experiment_name = my_experiment_name, n_cores = 5)
+results <- get_metrics_for_all_data(experiment_name = my_experiment_name, n_cores = 5)
 ```
 
 ```{r}
-# results_GUI(results)
+results_GUI(results)
 ```
 

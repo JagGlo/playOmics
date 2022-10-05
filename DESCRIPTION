@@ -20,6 +20,8 @@ Depends:
     tidyverse
 Imports: 
     carrier,
+    DALEX,
+    DALEXtra,
     dplyr,
     factoextra,
     ggplot2,
