@@ -67,7 +67,7 @@ get_metrics_for_all_data <- function(experiment_name, n_cores = detectCores()/4)
   models_to_read <- list.dirs(paste(here::here(experiment_name), "mlflow", "0", sep ="/"), recursive = F)
 
   results <-
-    pbapply::pblapply(1:length(models_to_read), function(model){
+    parallel::parLapplyLB(cl, 1:length(models_to_read), function(model){
     read_all_data_for_dir(models_to_read[model])
   }, cl = cl) %>%
     bind_rows()

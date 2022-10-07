@@ -158,6 +158,13 @@ create_multiple_models <- function(data_filtered, experiment_name, n_cores = det
           fitted_model = fitted_model
         )
 
+        #create temporary folder
+        dir.create(paste(directory,run$run_uuid, sep = "/"))
+        artifact_dir <- paste(directory,run$run_uuid, sep = "/")
+        mlflow::mlflow_save_model(crated_model, artifact_dir)
+        mlflow::mlflow_log_artifact(artifact_dir, artifact_path = "model")
+
+        rm(crated_model)
         # explain prediction
         explainer_lr <-
           DALEXtra::explain_tidymodels(
@@ -177,11 +184,6 @@ create_multiple_models <- function(data_filtered, experiment_name, n_cores = det
           },
           explainer_lr = explainer_lr
         )
-        #create temporary folder
-        dir.create(paste(directory,run$run_uuid, sep = "/"))
-        artifact_dir <- paste(directory,run$run_uuid, sep = "/")
-        mlflow::mlflow_save_model(crated_model, artifact_dir)
-        mlflow::mlflow_log_artifact(artifact_dir, artifact_path = "model")
 
         mlflow::mlflow_save_model(crated_explainer, artifact_dir)
         mlflow::mlflow_log_artifact(artifact_dir, artifact_path = "explainer")

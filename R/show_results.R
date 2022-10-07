@@ -113,14 +113,14 @@ shinyApp(
     })
 
       output$show_prediction <-renderText({
-        kableExtra::kable(values$prediction_result)
+        values$prediction_result
       })
 
       output$explain <- renderPlot({
         req(!is.null(values$prediction_result))
         values$explainer_link <- stringr::str_replace(values$model_link, "model", "explainer")
-        myexplainer <- mlflow::mlflow_load_model("/home/rstudio/code/playOmics/LAML_experiment/mlflow/0/1c4c676ddab64436b597bc67bea4897f/artifacts/explainer")
-        explained <- mlflow::mlflow_predict(myexplainer, prediction_data)
+        myexplainer <- mlflow::mlflow_load_model(values$explainer_link)
+        explained <- mlflow::mlflow_predict(myexplainer, values$prediction_data)
 
         explained %>%
           group_by(variable) %>%
