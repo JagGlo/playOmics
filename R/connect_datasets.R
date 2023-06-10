@@ -1,12 +1,21 @@
-#' Connect datasets
+#' Combine multiple datasets into a list
 #'
-#' @param ... names of datasets that should be concatenated
-#' @param remove_original_data If set to TRUE [default], it will remove all dataframes passed as arguments.
+#' This function takes in multiple datasets and combines them into a list. By
+#' default, the original datasets are removed from the global environment.
 #'
-#' @return Named list; dataset names are further used as a list's elements names. Common ID must be placed as a first column for all data.
+#' @param ... names of datasets to be concatenated. Common ID must be placed as a first column for all data.
+#' @param remove_original_data A logical value indicating whether or not to
+#' remove the original datasets from the global environment. Default is TRUE.
+#'
+#' @return A list containing the combined datasets.
 #'
 #' @examples
-#' my_data <-connect_datasets(clinical_data, eeg_data, proteomics_data, miRNA_data, RNA_data)
+#' # create two sample datasets
+#' df1 <- data.frame(a = 1:5, b = 6:10)
+#' df2 <- data.frame(a = 11:15, b = 16:20)
+#'
+#' # combine the datasets into a list
+#' combined <- connect_datasets(df1, df2)
 #'
 #' @export
 

@@ -9,6 +9,8 @@ shinyApp(
     DT::dataTableOutput("data"),
     DT::dataTableOutput("present_data"),
     plotlyOutput("3dplot"),
+    DT::dataTableOutput("variable_stats"),
+    # plotOutput("variable_stats_plots"),
     uiOutput("predict_dashboard"),
     plotOutput("explain")
   ),
@@ -54,6 +56,37 @@ shinyApp(
       values$df_data, server = FALSE, escape = FALSE, selection = 'none'
     )
 
+    output$variable_stats <- DT::renderDT({
+      count_stats_per_model(values$df_data) %>%
+      datatable(filter="top",
+                options = list(server = FALSE, escape = FALSE, selection = 'none') )
+    })
+
+    # output$variable_stats_plots <- renderPlot({
+    #   lapply(1:(length(values$df_data)-1), function(i){
+    #
+    #    data <- values$df_data[,c(i, length(values$df_data))]
+    #
+    #    unique_counts <-
+    #      data %>%
+    #      summarise_all(n_distinct)
+    #
+    #    names_to_fct <- names(unique_counts[which(unique_counts == 2)])
+    #
+    #    data <-
+    #      data %>%
+    #      mutate_at(names_to_fct, as.factor)
+    #
+    #    if(is.numeric(data[1])){
+    #      raincloud_plot(data)
+    #    } else if(is.factor(data[1])){
+    #      ggplot(aes(x = get(names(data)[2]), y = get(names(data)[1]), fill = get(names(data)[2])), data = data)
+    #    }
+    #
+    #   })
+    #
+    # })
+
     output$`3dplot`<-renderPlotly({
       req(input$present_data_btn)
       if(length(values$df_data) == 3){
@@ -66,9 +99,9 @@ shinyApp(
 
       } else {
           plotly::plot_ly(values$df_data,
-                          x = as.formula(paste0("~", names(values$df_data)[1])),
-                          y = as.formula(paste0("~", names(values$df_data)[2])),
-                          z = as.formula(paste0("~", names(values$df_data)[3])),
+                          x = as.formula(paste0("~\u0060", names(values$df_data)[1], "\u0060")),
+                          y = as.formula(paste0("~\u0060", names(values$df_data)[2], "\u0060")),
+                          z = as.formula(paste0("~\u0060", names(values$df_data)[3], "\u0060")),
                           color = as.formula(paste0("~", target$target_variable)),
                           colors = c("#0C4B8E", "#BF382A"),
                           type = "scatter3d",
@@ -93,7 +126,7 @@ shinyApp(
         numericInput("input2", vars[2],""),
         numericInput("input3", vars[3], ""),
         actionButton("predict", "Predict"),
-        htmlOutput("show_prediction")
+        DT::dataTableOutput("show_prediction")
       )
       )
     })
@@ -112,7 +145,7 @@ shinyApp(
        values$prediction_result <- predicted
     })
 
-      output$show_prediction <-renderText({
+      output$show_prediction <-renderDT({
         values$prediction_result
       })
 

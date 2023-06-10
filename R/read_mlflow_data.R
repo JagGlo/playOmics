@@ -1,6 +1,6 @@
 read_all_data_for_dir <- function(dir){
   dirs <- list.dirs(dir, full.names = F, recursive = F)
-  tryCatch({
+  # tryCatch({
   my_results <-
     lapply(dirs, function(dir_name){
       if(dir_name == "params"){
@@ -14,15 +14,16 @@ read_all_data_for_dir <- function(dir){
           read %>%
           unlist(recursive = FALSE) %>%
           enframe() %>%
-          unnest() %>%
-          spread(name, value)
+          unnest(cols = c()) %>%
+          spread(name, value) %>%
+          mutate(across(starts_with("n_"), as.numeric))
         return(df)
       } else if(dir_name == "metrics"){
         files <- list.files(paste(dir, dir_name, sep = "/"))
         read <-
           lapply(1:length(files), function(i){
             file <- read_file(paste(dir, dir_name, files[i], sep = "/"))
-            result <- strsplit(file, " ")[[1]][2]
+            result <- as.numeric(strsplit(file, " ")[[1]][2])
             return(result)
           })
         names(read) <- files
@@ -30,8 +31,9 @@ read_all_data_for_dir <- function(dir){
           read %>%
           unlist(recursive = FALSE) %>%
           enframe() %>%
-          unnest() %>%
-          spread(name, value)
+          unnest(cols = c()) %>%
+          spread(name, value) %>%
+          mutate_all(as.numeric)
         return(df)
       } else if(dir_name == "artifacts"){
         directory <- as.list(list.files(paste(dir, dir_name, sep = "/"), full.names = T))
@@ -44,9 +46,9 @@ read_all_data_for_dir <- function(dir){
   names(my_results) <- dirs
   res <- my_results[c("params", "metrics", "artifacts")] %>% flatten() %>% bind_rows()
   return(res)
-  }, error = function(error_condition) {
-    return(NULL)
-  })
+  # }, error = function(error_condition) {
+  #   return(NULL)
+  # })
 }
 
 #' Get experiment metrics
@@ -64,12 +66,13 @@ get_metrics_for_all_data <- function(experiment_name, n_cores = detectCores()/4)
 
   cl <- parallel::makeForkCluster(n_cores)
 
-  models_to_read <- list.dirs(paste(here::here(experiment_name), "mlflow", "0", sep ="/"), recursive = F)
+  models_to_read <- list.dirs(paste(getwd(), experiment_name, "mlflow", "0", sep ="/"), recursive = F)
 
   results <-
-    parallel::parLapplyLB(cl, 1:length(models_to_read), function(model){
+  parallel::parLapplyLB(cl, 1:length(models_to_read), function(model){
+    # lapply(1:length(models_to_read), function(model){
     read_all_data_for_dir(models_to_read[model])
-  }, cl = cl) %>%
+  }) %>%
     bind_rows()
 
   parallel::stopCluster(cl)
