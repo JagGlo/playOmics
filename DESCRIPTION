@@ -12,9 +12,8 @@ LazyData: true
 RoxygenNote: 7.2.1
 Suggests: 
     data.table,
-    knitr,
-    pbapply,
-    rmarkdown
+    rmarkdown,
+    testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Depends: 
     tidyverse
@@ -41,3 +40,4 @@ Imports:
     tune,
     workflows,
     yardstick
+Config/testthat/edition: 3
