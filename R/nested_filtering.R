@@ -61,8 +61,8 @@ select_features <- function(data, ranking, target, cutoff_method, cutoff_treshol
 #' This function performs nested filtering on multiple datasets. It takes a
 #' target dataset and a list of datasets as an input, adds target to each dataset
 #' and removes missing target values. It then performs n-times feature ranking on
-#' each dataset and selects the top features according to a specified
-#' cutoff method. Nextly, ranking is created and mean metric value is used for variable selection.
+#' each fold. Nextly, ranking among all folds is created and mean metric value is used for variable selection.
+#' The top features are selected according to a specified cutoff method
 #'
 #' It consists of two underlying functions:
 #'
@@ -127,19 +127,24 @@ nested_filtering <- function(data, target, filter_name = "auc", cutoff_method = 
       data[[dataframe]] %>%
       filter(!is.na(!!rlang::sym(target$target_variable)))
 
+    # Perform stratified cross-validation using vfold_cv from the rsample package
     resample <-
       rsample::vfold_cv(data[[dataframe]],
                         v = nfold,
                         strata = target$target_variable
       )
+
+    # Create a list to store the training data for each fold
     training_data <-
       lapply(1:nfold, function(i) resample$splits[[i]]$data[resample$splits[[i]]$in_id, ])
 
     names(training_data) <- paste0("split", 1:nfold)
 
+    # Rank the features using the rank_features function
     ranked_features <-
       rank_features(training_data, target, filter_name = filter_name, n_threads = n_threads)
 
+    # Select the top features based on the ranking using the select_features function
     ranked_features$selected_features <-
       select_features(data[[dataframe]], ranked_features$ranking, target, cutoff_method = cutoff_method, cutoff_treshold = cutoff_treshold)
   }, USE.NAMES = TRUE, simplify = F)

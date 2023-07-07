@@ -9,7 +9,7 @@
 #' @param target A named list with the following elements:
 #'   * phenotype_df: A character string specifying the dataframe containing the target variable.
 #'   * id_variable: A character string specifying the ID variable.
-#'   * target_variable: (Optional) A character string specifying the target variable.
+#'   * target_variable: A character string specifying the target variable.
 #'   * positive_class: (Optional) The value of the target variable representing the positive class.
 #' @return A named list of processed dataframes.
 #' @export

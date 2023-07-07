@@ -1,221 +1,131 @@
-log_metrics <- function(metrics, run_id) {
-  parameter_names <- names(metrics)
-  parameter_values <- lapply(metrics, rlang::get_expr)
-  for (i in seq_along(metrics)) {
-    parameter_name <- parameter_names[[i]]
-    parameter_value <- parameter_values[[i]]
-    if (!is.null(parameter_value)) {
-      mlflow::mlflow_log_metric(parameter_name, parameter_value, run_id = run_id)
-    }
-  }
-  metrics
-}
-
-#' Create small models
+#' Create and evaluate multiple logistic regression models
 #'
+#' This function creates a logistic regression model using tidymodels, recipes, and workflows,
+#' and evaluates its performance on training and test datasets. The function also logs the experiment
+#' information, metrics, and artifacts using the mlflow package. Moreover, it creates an explainer
+#' for each model using DALEXtra package.
 #'
-#'
-#' @param
-#
-#' @return
-#'
-#' @examples
-#'
+#' @param train_data A dataframe containing the training dataset.
+#' @param test_data A dataframe containing the test dataset.
+#' @param n_max Maximum number of variables to be combined into a model. Cannot be lower than 2 (default: 3).
+#' @param target A named list with "id_variable" and "target_variable" specifying the ID and target variable names.
+#' @param n_prop A numeric value representing the proportion of data used for each resample in the subsampling process (default: 2/3).
+#' @return A dataframe containing the performance metrics for the created model on the training and test datasets.
 #' @export
 
-create_multiple_models <- function(data_filtered, experiment_name, n_cores = detectCores()/4, n_prop = 2/3, n_repeats = 50){
+
+create_multiple_models <- function(experiment_name, train_data, test_data, target, n_max = 3, n_cores = parallel::detectCores()/4){
 
   directory <- paste0(getwd(), '/', experiment_name)
-  if(!dir.exists(directory)){
-    dir.create(directory)
-  } else {
-    logger::log_error("Experiment with given name already exists. Please introduce different name")
-    stop("Experiment with given name already exists. Please introduce different name")
+
+  # if(!dir.exists(directory)){
+  #   dir.create(directory)
+  # } else {
+  #   logger::log_error("Experiment with given name already exists. Please introduce different name")
+  #   stop("Experiment with given name already exists. Please introduce different name")
+  # }
+
+  # Create directory for mlflow
+  # mlflow_directory <- paste(directory, "mlflow", sep = "/")
+  # dir.create(mlflow_directory)
+  # mlflow::mlflow_set_tracking_uri(mlflow_directory)
+  # mlflow::mlflow_set_experiment(
+  #     experiment_name = experiment_name
+  #   )
+
+  logger::log_info("Experiment {experiment_name} created")
+
+  # prepare train data
+  train_data_united <-
+    train_data %>%
+    reduce(full_join, by = c(target$target_variable, target$id_variable)) %>%
+    select(-target$id_variable, -target$target_variable, everything())
+
+  # prepare test data
+  test_data_united <-
+    prepare_data_for_modelling(test_data, target) %>%
+    reduce(full_join, by = c(target$id_variable)) %>%
+    select(-target$id_variable, -target$target_variable, everything())
+
+  if(n_max < 2){
+    logger::log_error("n_max can't be lower than 2. Please introduce higher number!")
+    stop("n_max can't be lower than 2. Please introduce higher number!")
   }
+
+  # Prepare combinations
+  chunks <- list()
+
+  for(i in 2:n_max){
+    chunks[[i-1]] <- combn(names(train_data_united)[!(names(train_data_united) %in% c(target$target_variable, target$id_variable))], i, simplify = FALSE)
+  }
+
+  names(chunks) <- paste0(2:n_max, "-vars models")
 
   last_run <- Sys.Date()
 
-  data_united <-
-    data_filtered %>%
-    reduce(full_join, by = c(target$target_variable, target$id_variable)) %>%
-    select(-target$id_variable) %>%
-    select(-target$target_variable, everything())
-
-  chunks <-
-    c(
-      combn(ncol(data_united) - 1, 2, simplify = FALSE),
-      combn(ncol(data_united) - 1, 3, simplify = FALSE)
-    ) %>%
-    lapply(function(y) {
-      c(y, ncol(data_united))
-    }) %>%
-    sample()
-
-  # Save
-  save(data_united, directory, chunks, last_run, file = paste(directory, "raw_data.RData", sep = "/"))
-
-  mlflow_directory <- paste(directory, "mlflow", sep = "/")
-  dir.create(mlflow_directory)
-  mlflow::mlflow_set_tracking_uri(mlflow_directory)
-  mlflow::mlflow_set_experiment(
-    experiment_name = experiment_name
-  )
-  logger::log_info("Experiment {experiment_name} created")
-  cl <- parallel::makeForkCluster(n_cores)
+  # Save data
+  save(train_data, test_data, train_data_united, test_data_united, last_run, chunks, file = paste(directory, "data.RData", sep = "/"))
 
   logger::log_info("Starting modelling experiment")
-  models <-
-    chunks %>%
-    parallel::parLapplyLB(cl, ., function(single_model){
 
-      set.seed(sample(1:100000, size = 1))
-      data <-
-        data_united[, single_model] %>%
-        na.omit()
+  n <- 1
+  # Model and prune
+  lapply(names(chunks), function(chunk_list){
 
-      model_name <- paste(colnames(data[-ncol(data)]), collapse = " + ")
+    n <<- n+1
+    logger::log_info("There are {length(chunks[[chunk_list]])} {n}-vars models to be constructed")
 
-      tryCatch({
+    # Start parallel computing
+    cl <- parallel::makeForkCluster(n_cores)
 
-        mlflow::mlflow_start_run(nested = T)
-        run = mlflow::mlflow_get_run()
-        # log model name
-        mlflow::mlflow_log_param("model_name", model_name, run_id = run$run_uuid)
+    # models <- create_and_log_models(chunks[[chunk_list]], data_united, test_data, n_cores = parallel::detectCores()/4, n_prop = 2/3, n_repeats = 50, directory, abbreviations)
+    models <-
+      chunks[[chunk_list]] %>%
+      parallel::parLapplyLB(cl, ., function(single_model){
+        # lapply(function(single_model){
 
-        n_groups <-
-          data %>%
-          group_by(!!rlang::sym(target$target_variable)) %>%
-          count() %>%
-          spread(target$target_variable, n) %>%
-          rename_with( ~ paste0("n_", .x))
+          # allow only for non-missing data
+          train_data <-
+            train_data_united[, c(target$id_variable, single_model, target$target_variable)] %>%
+            na.omit()
 
-        lapply(colnames(n_groups), function(i) mlflow::mlflow_log_param(i, pull(n_groups[i]),  run_id = run$run_uuid))
+          test_data <-
+            test_data_united[, c(target$id_variable, single_model, target$target_variable)] %>%
+            na.omit()
 
-        # Define model
-        data_recipe <-
-          recipes::recipe(data) %>%
-          recipes::update_role(target$target_variable, new_role = "outcome") %>%
-          recipes::update_role(recipes::has_role(NA), new_role = "predictor")
-        # step_normalize(all_predictors()) #should the data be normalized?
+        create_model(train_data, test_data, target, log_experiment = FALSE)
 
-        model_spec <- # your model specification
-          parsnip::logistic_reg() %>%  # model type
-          parsnip::set_engine(engine = "glm") %>%  # model engine
-          parsnip::set_mode("classification")   # model mode
-
-        # Subsampling
-        resample <- rsample::mc_cv(data, prop = n_prop, times = n_repeats, strata = target$target_variable)
-
-        mlflow::mlflow_log_param("resampling strategy", "mc_cv")
-        mlflow::mlflow_log_param("prop", n_prop)
-        mlflow::mlflow_log_param("times", n_repeats)
-
-        # Define workflow
-        model_wflow <- # new workflow object
-          workflows::workflow() %>% # use workflow function
-          workflows::add_recipe(data_recipe) %>%   # use the recipe
-          workflows::add_model(model_spec)
-
-        model_res <-
-          model_wflow %>%
-          tune::fit_resamples(
-            resamples = resample,
-            metrics = yardstick::metric_set(
-              yardstick::mcc,
-              yardstick::recall,
-              yardstick::precision,
-              yardstick::accuracy,
-              yardstick::roc_auc,
-              yardstick::sens,
-              yardstick::spec,
-              yardstick::ppv,
-              yardstick::npv,
-              yardstick::pr_auc,
-              yardstick::f_meas,
-            ),
-            control = tune::control_resamples(
-              save_pred = TRUE, allow_par = F)
-          )
-
-        results <-
-          model_res %>%
-          tune::collect_metrics(summarize = T) %>%
-          select(.metric, mean) %>%
-          spread(.metric, mean)
-
-        log_metrics(results,  run_id = run$run_uuid)
-
-        # create final model on complete data
-        fitted_model <- fit(model_wflow, data)
-
-        crated_model <- carrier::crate(
-          function(data_to_fit) {
-            dplyr::bind_cols(
-              workflows:::predict.workflow(fitted_model, as.data.frame(data_to_fit), type = "class"),
-              workflows:::predict.workflow(fitted_model, as.data.frame(data_to_fit), type = "prob")
-            )
-          },
-          fitted_model = fitted_model
-        )
-
-        #create temporary folder
-        dir.create(paste(directory,run$run_uuid, sep = "/"))
-        artifact_dir <- paste(directory,run$run_uuid, sep = "/")
-        mlflow::mlflow_save_model(crated_model, artifact_dir)
-        mlflow::mlflow_log_artifact(artifact_dir, artifact_path = "model")
-
-        rm(crated_model)
-        # explain prediction
-        explainer_lr <-
-          DALEXtra::explain_tidymodels(
-            fitted_model,
-            data = data,
-            y = target$target_variable,
-            label = "lr",
-            verbose = FALSE
-          )
-
-        crated_explainer <- carrier::crate(
-          function(data_to_fit) {
-            DALEX::predict_parts(
-              explainer = explainer_lr,
-              new_observation = data_to_fit,
-              type = "shap")
-          },
-          explainer_lr = explainer_lr
-        )
-
-        mlflow::mlflow_save_model(crated_explainer, artifact_dir)
-        mlflow::mlflow_log_artifact(artifact_dir, artifact_path = "explainer")
-
-        # save raw data
-        data_dir <-paste0(artifact_dir,"/data.rds")
-        ## temporary data save
-        saveRDS(data, file = data_dir)
-        ## log data to experiment
-        mlflow::mlflow_log_artifact(data_dir,  run_id = run$run_uuid)
-        #remove directiry
-        unlink(artifact_dir, recursive=TRUE)
-        # end mlflow run
-        mlflow::mlflow_end_run()
-
-        # return metrics
-        return(results)
-        # })
-      }, error = function(error_condition) {
-        message(error_condition)
-        return(NULL)
       })
-    })
+
+    parallel::stopCluster(cl)
+browser()
+    # save stats
+    save(models, file = paste(directory, paste0(chunk_list, "_stats.RData"), sep = "/"))
+
+    toremove <- na.omit(models[sapply(models,"[[", "train_mcc") <= 0.3])
+    toremove <- toremove[lengths(toremove) > 0]
+    logger::log_info("There are {length(toremove)} {n}-vars models to be removed")
+
+    if(n < n_max){
+      models_tbr <-
+        lapply(chunks[[n]], function(x){
+          any(
+            as.logical(
+              lapply(toremove, function(y){
+                all(unlist(as.vector(str_split(y$model_name, pattern = "\\s\\+\\s"))) %in% x)
+              })
+            )
+          )
+        })
+
+      logger::log_info("There are {sum(unlist(models_tbr))} {n+1}-vars models to be removed")
+      logger::log_info("There are {length(chunks[[n]]) - sum(unlist(models_tbr))} {n+1}-vars combinations to be assessed")
+
+      chunks[[n]] <<- chunks[[n]][!unlist(models_tbr)]
+    }
+  })
+
   logger::log_info("Modelling experiment ended")
 
-  # save models' stats
-  save(models,file = paste(directory, "models_stats.RData", sep = "/"))
-
-  # Multicore off
-  parallel::stopCluster(cl)
-  rm(cl)
-
-  return(models)
-
 }
+
