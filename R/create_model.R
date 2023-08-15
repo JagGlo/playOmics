@@ -15,31 +15,55 @@
 #' @return A dataframe containing the performance metrics for the created model on the training and test datasets.
 #' @export
 
-create_model <- function(train_data, test_data, target, validation_method = "subsampling", n_prop = 2 / 3, n_repeats = 50, log_experiment = TRUE, explain = TRUE, directory = getwd()) {
-  model_name <- paste(colnames(train_data)[!(colnames(train_data) %in% c(target$id_variable, target$target_variable))], collapse = " + ")
+create_model <- function(
+    train_data, test_data, target,
+    validation_method = "subsampling", n_prop = 2 / 3, n_repeats = 50,
+    log_experiment = TRUE,
+    explain = TRUE,
+    directory = getwd()) {
 
+  model_name <- paste(colnames(train_data)[!(colnames(train_data) %in% c(target$target_variable))], collapse = " + ")
+  # Model names are unique within an analysis
+  model_id <- digest::digest(model_name)
+
+  results <-
+  tryCatch(
+    {
   if (log_experiment) {
-    # Model names are unique within an analysis
-    model_id <- digest::digest(model_name)
     model_dir <- file.path(directory, model_id)
     dir.create(model_dir)
 
     # Create logger
     con <- file(paste(model_dir, "model_logs.txt", sep = "/"))
+    on.exit(close(con))
     sink(con, append = TRUE)
     sink(con, append = TRUE, type = "message")
+    on.exit(sink())
     logger::log_info("Model '{model_name}' started")
   }
 
-  tryCatch(
-    {
+  if(log_experiment){
+    model_details <-
+      tibble(
+        model_name = model_name,
+        model_id = model_id,
+        model_dir = model_dir
+      )
+  } else {
+    model_details <-
+      tibble(
+        model_name = model_name,
+        model_id = NULL,
+        model_dir = NULL
+      )
+  }
+
       n_groups <-
         train_data %>%
         count(!!rlang::sym(target$target_variable)) %>%
         pivot_wider(
           names_from = all_of(target$target_variable), names_prefix = "n_", values_from = n
         ) %>%
-        rename_with(~ paste0("n_", .x)) %>%
         lapply(identity)
 
       if (log_experiment) {
@@ -59,7 +83,6 @@ create_model <- function(train_data, test_data, target, validation_method = "sub
       # Define model
       data_recipe <-
         recipes::recipe(train_data) %>%
-        recipes::update_role(target$id_variable, new_role = "id variable") %>%
         recipes::update_role(target$target_variable, new_role = "outcome") %>%
         recipes::update_role(recipes::has_role(NA), new_role = "predictor")
 
@@ -97,13 +120,13 @@ create_model <- function(train_data, test_data, target, validation_method = "sub
           yardstick::recall,
           yardstick::precision,
           yardstick::accuracy,
-          # yardstick::roc_auc,
+          yardstick::roc_auc,
           yardstick::sens,
           yardstick::spec,
           yardstick::ppv,
           yardstick::npv,
-          # yardstick::pr_auc,
-          yardstick::f_meas,
+          yardstick::pr_auc,
+          yardstick::f_meas
         )
 
       model_res <-
@@ -130,19 +153,35 @@ create_model <- function(train_data, test_data, target, validation_method = "sub
 
       if (nrow(test_data) > 0) {
         ## get predictions
-        predicted <- predict(fitted_model,
-          new_data = test_data,
-          type = "class"
-        )
+        test_results <-
+        predict(fitted_model, new_data = test_data) %>%
+          bind_cols(predict(fitted_model, new_data = test_data, type = "prob")) %>%
+          bind_cols(test_data %>%
+                      select(target$target_variable))
 
-        test_results <- test_data %>%
-          select(target$target_variable) %>%
-          bind_cols(predicted)
+        custom_metrics <-
+          yardstick::metric_set(
+            yardstick::mcc,
+            yardstick::recall,
+            yardstick::precision,
+            yardstick::accuracy,
+            yardstick::sens,
+            yardstick::spec,
+            yardstick::ppv,
+            yardstick::npv,
+            yardstick::f_meas
+          )
 
         test_metrics <-
           custom_metrics(test_results,
             truth = !!target$target_variable,
             estimate = .pred_class
+          ) %>%
+          bind_rows(
+            yardstick::roc_auc(test_results,
+                           truth = !!target$target_variable,
+                           estimate = !!paste0(".pred_", target$positive_class)
+            )
           ) %>%
           mutate(`.metric` = paste0("test_", `.metric`)) %>%
           select(-`.estimator`) %>%
@@ -161,7 +200,7 @@ create_model <- function(train_data, test_data, target, validation_method = "sub
               count(.pred_class) %>%
               ungroup() %>%
               mutate(guessed = case_when(
-                !!rlang::sym(target$target_variable) == `.pred_class` ~ paste0("n_test_", !!rlang::sym(target$target_variable), "_guessed_correctly"),
+                !!rlang::sym(target$target_variable) == `.pred_class` ~ paste0("test_n_", !!rlang::sym(target$target_variable), "_guessed_correctly"),
                 TRUE ~ paste0("test_n_", !!rlang::sym(target$target_variable), "_guessed_incorrectly")
               )) %>%
               select(guessed, n) %>%
@@ -171,14 +210,14 @@ create_model <- function(train_data, test_data, target, validation_method = "sub
 
         results <-
           bind_cols(
-            tibble(model_name = model_name),
+            model_details,
             train_results,
             test_metrics
           )
       } else {
         results <-
           bind_cols(
-            tibble(model_name = model_name),
+            model_details,
             train_results
           )
       }
@@ -216,47 +255,52 @@ create_model <- function(train_data, test_data, target, validation_method = "sub
             label = "lr",
             verbose = FALSE
           )
-
-        if (log_experiment) {
-          saveRDS(
-            carrier::crate(
-              function(data_to_fit) {
-                DALEX::predict_parts(
-                  explainer = explainer_lr,
-                  new_observation = data_to_fit,
-                  type = "shap"
-                )
-              },
-              explainer_lr = explainer_lr
-            ),
-            file.path(model_dir, "explainer.Rds")
-          )
-        }
       }
 
-      # save raw data
-      saveRDS(
-        train_data, file.path(model_dir, "train_data.Rds")
-      )
-      saveRDS(
-        test_data, file.path(model_dir, "test_data.Rds")
-      )
+      if (all(log_experiment, explain)) {
+        saveRDS(
+          carrier::crate(
+            function(data_to_fit) {
+              DALEX::predict_parts(
+                explainer = explainer_lr,
+                new_observation = data_to_fit,
+                type = "shap"
+              )
+            },
+            explainer_lr = explainer_lr
+          ),
+          file.path(model_dir, "explainer.Rds")
+        )
+      }
 
       if (log_experiment) {
+        # save raw data
+        saveRDS(
+          train_data, file.path(model_dir, "train_data.Rds")
+        )
+        saveRDS(
+          test_data, file.path(model_dir, "test_data.Rds")
+        )
         logger::log_info("Model '{model_name}' ended")
-        sink()
+        close(con)
+        on.exit(sink())
+
       }
 
-      # return metrics
-      return(results)
+  # return metrics
+  results
     },
-    error = function(error_condition) {
-      message(error_condition)
-      if (log_experiment) {
-        logger::log_error(as.character(error_condition))
-      }
-      sink()
-      return(NULL)
+  error = function(error_condition) {
+    # message(error_condition)
+    if (log_experiment) {
+      logger::log_error(as.character(error_condition))
+      close(con)
+      on.exit(sink())
     }
+    return(tibble(model_id = model_id))
+  }
   )
+
+  return(results)
 }
+
