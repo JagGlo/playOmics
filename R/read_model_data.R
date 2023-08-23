@@ -66,7 +66,7 @@ get_metrics_for_all_data <- function(experiment_name, n_cores = detectCores()/4)
 
   cl <- parallel::makeForkCluster(n_cores)
 
-  models_to_read <- list.dirs(paste(getwd(), experiment_name, "mlflow", "0", sep ="/"), recursive = F)
+  models_to_read <- list.dirs(paste(getwd(), experiment_name, sep ="/"), recursive = F)
 
   results <-
   parallel::parLapplyLB(cl, 1:length(models_to_read), function(model){
