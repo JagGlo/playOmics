@@ -2,14 +2,12 @@
 output: github_document
 ---
 
-
 ```{r include=FALSE}
-for (f in list.files(path = here::here("R"), pattern="*.R")) {
-    source(paste0(here::here("R/"),f))
+for (f in list.files(path = here::here("R"), pattern="*.R", full.names = T)) {
+    source(f)
 }
 ```
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
@@ -19,6 +17,8 @@ knitr::opts_chunk$set(
   out.width = "100%"
 )
 ```
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
 
 # playOmics
 
@@ -44,9 +44,7 @@ Give playOmics a spin for your multi-omics data. It's user-friendly, flexible, a
 
 <!-- badges: end -->
 
-## Installation
-
-### Install package
+# Installation
 
 You can install the development version of playOmics from GitHub with:
 
@@ -54,56 +52,29 @@ You can install the development version of playOmics from GitHub with:
 remotes::install_github("JagGlo/playOmics")
 ```
 
-### Run docker
-
-playOmics can also be run from a Dockerfile available under https://github.com/JagGlo/playOmics. The dockerfile includes installation of playOmics and mlflow, which is needed to log the models. 
-
-To run a Docker container from a Dockerfile located on a GitHub repository, you'll first need to clone the repository, build the Docker image, and then run the Docker container. Follow these steps:
-
-Sure, if you want to only download the Dockerfile from the GitHub repository and not the entire repository, you can follow these instructions:
-
-#### Step 1: Download the Dockerfile
-
-You can directly download the Dockerfile using the `curl` command. You will need to use the raw GitHub URL for the Dockerfile: 
-
-The command to download the Dockerfile would look like this:
-
-```bash
-curl -O <raw_github_dockerfile_url>
-```
-
-#### Step 2: Build the Docker image
-
-Build the Docker image from the Dockerfile. You can replace `<image_name>` with a name of your choice.
-
-```bash
-docker build -t <image_name> .
-```
-
-This command should be run in the directory where you downloaded the Dockerfile.
-
-#### Step 3: Run the Docker container
-
-Finally, run the Docker container from the image you just built:
-
-```bash
-docker run -d -p 8080:8080 <image_name>
-```
-
-In this command, `-d` runs the container in detached mode (in the background), and `-p 8080:8080` maps port 8080 in the container to port 8080 on your machine. Adjust the port mapping as needed depending on the application running inside the Docker container.
-
-Please replace `<image_name>` with the name you want to give to your Docker image.
-
 # BRCA data example
 
+## About BRCA data
+
+BRCA data has been downloaded from LinkedOmics portal and are freely available for the research purpose: https://www.linkedomics.org/data_download/TCGA-BRCA/.
+
 ```{r setup}
-library(playOmics)
+# library(playOmics)
 ```
 
 ```{r}
 # Additional libraries
 library(tidyverse)
 library(readxl)
+```
+
+## Set working directory & experiment name
+
+For the purpose of logging, it's profitable to define working directory, either by setwd() function or by the usage of here package.
+
+```{r}
+here::set_here()
+experiment_name <- "final_top5_cv5"
 ```
 
 ## Data preparation
@@ -116,10 +87,10 @@ Each dataset should be structured in the following format: variables in the colu
 
 ```{r}
 clinical_data <-
-  read_delim("~/code/test_data/TCGA-BRCA/Human__TCGA_BRCA__MS__Clinical__Clinical__01_28_2016__BI__Clinical__Firehose.tsi", na = c("NA", "NA,NA")) %>% 
+  read_delim("TCGA-BRCA/Human__TCGA_BRCA__MS__Clinical__Clinical__01_28_2016__BI__Clinical__Firehose.tsi", na = c("NA", "NA,NA")) %>% 
   data.table::transpose(keep.names="ID", make.names="attrib_name") %>% 
   select(-"overallsurvival") %>% 
-  mutate_at(.vars = c("years_to_birth", "overall_survival"), as.numeric)
+  mutate_at(.vars = c("years_to_birth", "overall_survival"), as.numeric) 
 
 clinical_data %>% 
   count(histological_type)
@@ -130,39 +101,44 @@ We will focus only on two histological types: ductal and lobular cancer and will
 ```{r}
 clinical_data <-
 clinical_data %>% 
-  filter(histological_type %in% c("infiltratingductalcarcinoma", "infiltratinglobularcarcinoma"))
+  filter(histological_type %in% c("infiltratingductalcarcinoma", "infiltratinglobularcarcinoma")) %>% 
+  # increase readability
+  mutate(histological_type = case_when(
+    histological_type == "infiltratinglobularcarcinoma" ~ "lobular",
+    histological_type == "infiltratingductalcarcinoma" ~ "ductal"
+  ))
 ```
 
 Other datasets:
 
 ```{r}
 proteome <-
-  read_delim("~/code/test_data/TCGA-BRCA/Human__TCGA_BRCA__BI__Proteome__QExact__01_28_2016__BI__Gene__CDAP_iTRAQ_UnsharedLogRatio_r2.cct", na = c("NA", "NA,NA")) %>% 
+  read_delim("TCGA-BRCA/Human__TCGA_BRCA__BI__Proteome__QExact__01_28_2016__BI__Gene__CDAP_iTRAQ_UnsharedLogRatio_r2.cct", na = c("NA", "NA,NA")) %>% 
   data.table::transpose(keep.names="ID", make.names="attrib_name") %>% 
   mutate_at(vars(-ID), as.numeric)
 
 methylation <-
-  read_delim("~/code/test_data/TCGA-BRCA/Human__TCGA_BRCA__JHU_USC__Methylation__Meth450__01_28_2016__BI__Gene__Firehose_Methylation_Prepocessor.cct", na = c("NA", "NA,NA")) %>% 
+  read_delim("TCGA-BRCA/Human__TCGA_BRCA__JHU_USC__Methylation__Meth450__01_28_2016__BI__Gene__Firehose_Methylation_Prepocessor.cct", na = c("NA", "NA,NA")) %>% 
    data.table::transpose(keep.names="ID", make.names="attrib_name") %>% 
   mutate_at(vars(-ID), as.numeric)
 
 miRNA <-
- read_delim("~/code/test_data/TCGA-BRCA/Human__TCGA_BRCA__BDGSC__miRNASeq__HS_miR__01_28_2016__BI__Gene__Firehose_RPKM_log2.cct", na = c("NA", "NA,NA")) %>% 
+ read_delim("TCGA-BRCA/Human__TCGA_BRCA__BDGSC__miRNASeq__HS_miR__01_28_2016__BI__Gene__Firehose_RPKM_log2.cct", na = c("NA", "NA,NA")) %>% 
    data.table::transpose(keep.names="ID", make.names="attrib_name") %>% 
   mutate_at(vars(-ID), as.numeric)
 
 mutation <-
-  read_delim("~/code/test_data/TCGA-BRCA/Human__TCGA_BRCA__WUSM__Mutation__GAIIx__01_28_2016__BI__Gene__Firehose_MutSig2CV.cbt", na = c("NA", "NA,NA")) %>% 
+  read_delim("TCGA-BRCA/Human__TCGA_BRCA__WUSM__Mutation__GAIIx__01_28_2016__BI__Gene__Firehose_MutSig2CV.cbt", na = c("NA", "NA,NA")) %>% 
    data.table::transpose(keep.names="ID", make.names="attrib_name") %>% 
   mutate_at(vars(-ID), as.numeric)
 
 RNAseq <-
-  read_delim("~/code/test_data/TCGA-BRCA/Human__TCGA_BRCA__UNC__RNAseq__HiSeq_RNA__01_28_2016__BI__Gene__Firehose_RSEM_log2.cct", na = c("NA", "NA,NA")) %>% 
+  read_delim("TCGA-BRCA/Human__TCGA_BRCA__UNC__RNAseq__HiSeq_RNA__01_28_2016__BI__Gene__Firehose_RSEM_log2.cct", na = c("NA", "NA,NA")) %>% 
    data.table::transpose(keep.names="ID", make.names="attrib_name") %>% 
   mutate_at(vars(-ID), as.numeric)
 
 SCNV_log_ratio <-
-  read_delim("~/code/test_data/TCGA-BRCA/Human__TCGA_BRCA__BI__SCNA__SNP_6.0__01_28_2016__BI__Gene__Firehose_GISTIC2.cct", na = c("NA", "NA,NA")) %>% 
+  read_delim("TCGA-BRCA/Human__TCGA_BRCA__BI__SCNA__SNP_6.0__01_28_2016__BI__Gene__Firehose_GISTIC2.cct", na = c("NA", "NA,NA")) %>% 
    data.table::transpose(keep.names="ID", make.names="attrib_name") %>% 
   mutate_at(vars(-ID), as.numeric)
 ```
@@ -228,7 +204,7 @@ plot_density_numeric(BRCA_data$miRNA)
 
 PCA plots
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 BRCA_data$RNAseq %>%
   left_join(BRCA_data$clinical_data %>% select(ID, ethnicity)) %>% 
     plot_PCA(ethnicity, "ethnicity", "RNA data (per sample)")
@@ -246,12 +222,12 @@ Two functions have been implemented:
 BRCA_data[["RNAseq"]] <- filter_below_threshold(data = BRCA_data[["RNAseq"]],
                                                 numeric_threshold =  3, 
                                                 pcent_of_samples = 0.5)
-BRCA_data[["RNAseq"]]
+BRCA_data[["RNAseq"]] %>% dim()
 ```
 
-After applying this filter, data reduced from 19,5k variables to 13,991 k.
+After applying this filter, data reduced from 19,5k variables to ~15 k.
 
--   filter missing data:
+-   filter missing data - similar to above, but the variables are removed based upon % of missing values (e.g. variables with more than 50% of missing values will be removed):  
 
 ```{r}
 # let's replace all zeros with NA to pretend missing data
@@ -259,10 +235,10 @@ BRCA_data[["miRNA"]][BRCA_data[["miRNA"]] == 0] <- NA
 # apply filter
 BRCA_data[["miRNA"]] <- filter_missing(data = BRCA_data[["miRNA"]],
                                        pcent_of_samples = 0.5)
-BRCA_data[["miRNA"]]
+BRCA_data[["miRNA"]] %>% dim()
 ```
 
-Initially we had 504 columns. After filtering for non-missing values in at least of 50% columns we end up with 316 columns.
+Initially we had 504 columns. After filtering for non-missing values in at least of 50% columns we end up with 451 columns.
 
 ## Classification
 
@@ -277,7 +253,7 @@ target <-
   define_target(phenotype_df_name = "clinical_data",
               id_variable_name = "ID",
               target_variable_name = "histological_type",
-              positive_class_name = "infiltratinglobularcarcinoma"
+              positive_class_name = "lobular"
               )
 
 target
@@ -341,6 +317,7 @@ In each fold, training data (k-1 folds) are ranked to check their convergence wi
 
 What's important, at this level we are still operating on each dataset separately, which give us opportunity to preserve equal number of slots for all sets.
 
+!!!! install.packages("mlr3filters", version='0.6.0') -? due to missing values handling
 
 ```{r}
 data_filtered <-
@@ -357,9 +334,27 @@ data_filtered <-
 
 ### Modelling
 
+W opisie wspomnieć że przez to że datasety się różnie łączą to nie zawsze mamy idealną sytuację i komplet badań. czasem mamy tylko np proteomikę dla 100 pacjentów z 1000 i wtedy nie musimy tych danych odrzucać!!!
+
+
+Nieoptymalne zapisywanie danych - BRCA_data 550 MB, BRCA_data_splitted - 450 MB, data prepared - 360 MB, modelling_set - 450 MB, splitted_data - 500 MB -? razem prawie 3 GB!!!
 ```{r}
-new_models <- create_multiple_models("fct_after_changes_wthout_mlflow", data_filtered, BRCA_data_splitted$test_data, target, n_max = 3, n_cores = 20)
-model_data <- function(data_filtered, test_data, experiment_name, n_max, resample, n_cores, n_prop, n_repeats)
+test_data_prepared <-
+ prepare_data_for_modelling(BRCA_data_splitted$test_data, target)
+```
+
+
+```{r}
+# tictoc::tic()
+# new_models <- create_multiple_models("final_top5_cv5_2", data_filtered, test_data_prepared, target, n_max = 3, n_cores = 7, validate_with_permutation = FALSE, directory = here::here())
+# .tictoc::toc()
+# results <-
+# bind_rows(
+#   bind_rows(`2-vars models_stats`),
+#   bind_rows(`3-vars models_stats`)
+# )
+#   new_models %>% bind_rows()
+# model_data <- function(data_filtered, test_data, experiment_name, n_max, resample, n_cores, n_prop, n_repeats)
 ```
 
 In the current working directory, a folder is created. Experiment name must be unique.
@@ -367,41 +362,65 @@ In the current working directory, a folder is created. Experiment name must be u
 In this step, data will finally connect into one dataframe.
 
 ```{r}
-my_experiment_name <- "BRCA_experiment_new_split"
+# my_experiment_name <- "BRCA_experiment_new_split"
+# 
+# small_models <-
+# create_multiple_models(
+#   data= BRCA_data,
+#   experiment_name = my_experiment_name,
+#   n_max = 3,
+#   n_cores = 20)
 
-small_models <-
-create_multiple_models(
-  data= BRCA_data,
-  experiment_name = my_experiment_name,
-  n_max = 3,
-  n_cores = 20)
+
 ```
 
 ### Check results
 
 ```{r}
-results <- get_metrics_for_all_data(experiment_name = my_experiment_name, n_cores = 5)
+# results <- get_metrics_for_all_data(experiment_name = my_experiment_name, n_cores = 5)
+```
+
+
+```{r}
+results <- lapply( list.files(path = paste(here::here(),experiment_name, sep = "/"), pattern="*.Rds", full.names = T), function(f){
+  readRDS(f)
+}) %>% 
+  bind_rows()
 ```
 
 ```{r}
 results %>% 
-  filter(!is.na(train_mcc), n_infiltratinglobularcarcinoma > 100) %>%
+  filter(!is.na(train_mcc), test_n_lobular > 10) %>%
   # transmute(model_name, train_mcc = as.numeric(train_mcc), test_mcc = as.numeric(test_mcc)) %>% 
   # mutate(diff = train_mcc - test_mcc) %>% 
   # arrange(desc(diff))
   results_GUI()
+
 ```
+
+![GUI overview](man/shiny_screenshots/GUI.png)
+
+### Results description
+
+No. of available samples:
+
+```{r}
+results %>% summarise(train_n = rowSums(across(c(n_lobular, n_ductal)), na.rm = T), test_n = rowSums(across(c(test_n_lobular, test_n_ductal)), na.rm = T)) -> seeme
+
+summary(seeme)
+```
+
 
 ## Validation
 
 ```{r}
-validation_target <-
-  define_target(phenotype_df_name = "clinical_data",
-              id_variable_name = "ID",
-              target_variable_name = NULL,
-              positive_class_name = NULL
-              )
-
-validation_data_prepared <-
-    prepare_data_for_modelling(data = validation_set, target = validation_target)
+# validation_target <-
+#   define_target(phenotype_df_name = "clinical_data",
+#               id_variable_name = "ID",
+#               target_variable_name = NULL,
+#               positive_class_name = NULL
+#               )
+# 
+# validation_data_prepared <-
+#     prepare_data_for_modelling(data = validation_set, target = validation_target)
 ```
