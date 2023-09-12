@@ -2,22 +2,25 @@
 #'
 #' This function creates a logistic regression model using tidymodels, recipes, and workflows,
 #' and evaluates its performance on training and test datasets. The function also logs the experiment
-#' information, metrics, and artifacts using the mlflow package (optional).
+#' information, metrics, and artifacts (optional) and provides explanation with DALEX package.
 #'
 #' @param train_data A dataframe containing the training dataset.
 #' @param test_data A dataframe containing the test dataset.
 #' @param target A named list with "id_variable" and "target_variable" specifying the ID and target variable names.
-#' @param n_prop A numeric value representing the proportion of data used for each resample in the subsampling process (default: 2/3).
-#' @param n_repeats A numeric value specifying the number of times to repeat the subsampling (default: 50).
-#' @param log_experiment A logical value indicating whether to log the experiment information using mlflow (default: TRUE).
+#' @param validation_method A character string specifying the validation method to be used; either "subsampling" or "cv" (default: "cv").
+#' @param n_prop A numeric value representing the proportion of data used for each resample in the subsampling process (default: 2/3 for subsampling).
+#' @param n_repeats A numeric value specifying the number of times to repeat the validation (default: 5).
+#' @param log_experiment A logical value indicating whether to log the experiment details and results. Default is TRUE.
 #' @param explain A logical value indicating whether to create model's explainer using DALEX (default: TRUE).
+#' @param directory A character string indicating the directory where experiment logs and models should be saved. Default is the current working directory.
 #'
-#' @return A dataframe containing the performance metrics for the created model on the training and test datasets.
+#' @return A tibble containing details of the model, training metrics, and test metrics (if test data provided).
+#' In case of an error during processing, it returns a tibble with only the 'model_id'.
 #' @export
 
 create_model <- function(
     train_data, test_data, target,
-    validation_method = "subsampling", n_prop = 2 / 3, n_repeats = 50,
+    validation_method = "cv", n_prop = 2 / 3, n_repeats = 5,
     log_experiment = TRUE,
     explain = TRUE,
     directory = getwd()) {
@@ -35,10 +38,8 @@ create_model <- function(
 
     # Create logger
     con <- file(paste(model_dir, "model_logs.txt", sep = "/"))
-    on.exit(close(con))
     sink(con, append = TRUE)
     sink(con, append = TRUE, type = "message")
-    on.exit(sink())
     logger::log_info("Model '{model_name}' started")
   }
 
@@ -177,12 +178,12 @@ create_model <- function(
             truth = !!target$target_variable,
             estimate = .pred_class
           ) %>%
-          bind_rows(
-            yardstick::roc_auc(test_results,
-                           truth = !!target$target_variable,
-                           estimate = !!paste0(".pred_", target$positive_class)
-            )
-          ) %>%
+          # bind_rows(
+          #   yardstick::roc_auc(test_results,
+          #                  truth =  !!target$target_variable,
+          #                  estimate = !!paste0(".pred_", target$positive_class)
+          #   )
+          # ) %>%
           mutate(`.metric` = paste0("test_", `.metric`)) %>%
           select(-`.estimator`) %>%
           spread(`.metric`, `.estimate`)
@@ -282,8 +283,10 @@ create_model <- function(
           test_data, file.path(model_dir, "test_data.Rds")
         )
         logger::log_info("Model '{model_name}' ended")
-        close(con)
-        on.exit(sink())
+
+        sink()
+        # close(con)
+        rm(con)
 
       }
 
@@ -294,8 +297,9 @@ create_model <- function(
     # message(error_condition)
     if (log_experiment) {
       logger::log_error(as.character(error_condition))
-      close(con)
-      on.exit(sink())
+      sink()
+      # close(con)
+      rm(con)
     }
     return(tibble(model_id = model_id))
   }
