@@ -37,9 +37,11 @@ create_model <- function(
     dir.create(model_dir)
 
     # Create logger
-    con <- file(paste(model_dir, "model_logs.txt", sep = "/"))
-    sink(con, append = TRUE)
-    sink(con, append = TRUE, type = "message")
+    log_path <- paste(model_dir, "model_logs.json", sep = "/")
+    logger::log_appender(logger::appender_file(log_path))
+    logger::log_threshold(logger::DEBUG)
+    logger::log_layout(logger::layout_json())
+
     logger::log_info("Model '{model_name}' started")
   }
 
@@ -130,6 +132,7 @@ create_model <- function(
           yardstick::f_meas
         )
 
+      logger::log_eval(
       model_res <-
         model_wflow %>%
         tune::fit_resamples(
@@ -138,7 +141,9 @@ create_model <- function(
           control = tune::control_resamples(
             save_pred = TRUE, allow_par = F
           )
-        )
+        ),
+      multiline = TRUE, level = logger::WARN
+      )
 
       train_results <-
         model_res %>%
@@ -284,10 +289,6 @@ create_model <- function(
         )
         logger::log_info("Model '{model_name}' ended")
 
-        sink()
-        # close(con)
-        rm(con)
-
       }
 
   # return metrics
@@ -297,9 +298,6 @@ create_model <- function(
     # message(error_condition)
     if (log_experiment) {
       logger::log_error(as.character(error_condition))
-      sink()
-      # close(con)
-      rm(con)
     }
     return(tibble(model_id = model_id))
   }
@@ -307,4 +305,3 @@ create_model <- function(
 
   return(results)
 }
-
