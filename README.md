@@ -23,9 +23,8 @@ biomarker discovery and disease prognosis.
 - **Tailored Design**: Especially useful for studies with smaller sample
   sizes, such as research on rare diseases.
 
-- **Practicality**: Ensures readiness with adaptable models, with the
-  capability to work around missing datasets by employing alternative
-  models.
+- **Practicality**: Ensures readiness with adaptable models, capable of
+  working around missing datasets by employing alternative models.
 
 In essence, **playOmics** stands out as a user-friendly, efficient tool
 that significantly elevates the potential of multi-omics data
@@ -42,19 +41,23 @@ You can install the development version of playOmics from GitHub with:
 remotes::install_github("JagGlo/playOmics")
 ```
 
-# BRCA data example
+# Exploring the BRCA Data
 
-## About BRCA data
+## Introduction to BRCA Data
 
-For the testing purpose, we have selected one of the TCGA data, [BRCA
-dataset](https://portal.gdc.cancer.gov/projects/TCGA-BRCA) ([read
-more](https://www.cell.com/cell/fulltext/S0092-8674(15)01195-2)).
+To explore the **playOmics** package, you will work with the BRCA
+dataset from TCGA data collection. You can delve deeper into the
+dataset’s details
+[here](https://portal.gdc.cancer.gov/projects/TCGA-BRCA).
 
-BRCA data has been downloaded from LinkedOmics portal and are freely
-available for the research purpose:
-<https://www.linkedomics.org/data_download/TCGA-BRCA/>.
+This dataset is openly available for research and can be downloaded from
+the [LinkedOmics
+portal](https://www.linkedomics.org/data_download/TCGA-BRCA/).
 
-## Load the libraries
+## Setting Up the Environment
+
+To initiate, let’s load the necessary libraries. Ensure the playOmics
+and additional libraries are available in your workspace.
 
 ``` r
 # load playOmics
@@ -62,7 +65,7 @@ available for the research purpose:
 ```
 
 ``` r
-# Additional libraries
+# Load the additional required libraries
 library(tidyverse)
 #> ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
 #> ✔ dplyr     1.1.2     ✔ readr     2.1.4
@@ -77,10 +80,11 @@ library(tidyverse)
 library(readxl)
 ```
 
-## Set working directory & experiment name
+## Establishing Working Directory & Naming the Experiment
 
-For the purpose of logging, it’s profitable to define working directory,
-either by setwd() function or by the usage of `here` package.
+Next, establish a working directory. It’s an essential step, allowing
+for streamlined logging and organization. You can achieve this using the
+setwd() function or the here package.
 
 ``` r
 here::set_here()
@@ -88,16 +92,17 @@ here::set_here()
 my_experiment_name <- "final_top5_cv5"
 ```
 
-## Data preparation
+## Preparing the Data
 
-We will read each data frame separately, giving as descriptive names as
-possible. At this point we should also take care of unifying identifier
-column name, changing incorrect columns types (e.g. char to numeric),
-removing unwanted variables and any other required cleaning.
+Now, let’s proceed with reading each data frame, and assigning
+descriptive names to them. It’s crucial to unify identifier column
+names, correct any improper column types (e.g., char to numeric),
+eliminate unnecessary variables, and perform other needed cleaning tasks
+at this stage.
 
-Each dataset should be structured in the following format: variables in
-the columns, observations in the rows and, obligatory, first column with
-observation ID (named equally for each dataset).
+**Remember**: Structure each dataset with variables in columns,
+observations in rows, and importantly, the first column should contain
+the observation ID, uniformly named across datasets.
 
 Let’s start with the clinical data:
 
@@ -128,9 +133,9 @@ clinical_data %>%
 #> 8                          <NA>   2
 ```
 
-For the demonstration purposes, we will focus only on two histological
-types: ductal and lobular cancer and will try to distinct them
-throughout the experiment:
+In this exploration, your focus will be on distinguishing between two
+histological types: ductal and lobular cancer. So, let’s filter the data
+to include only these types and make the type names more readable.
 
 ``` r
 clinical_data <-
@@ -143,7 +148,11 @@ clinical_data <-
   ))
 ```
 
-Omics datasets that will bee incorporated in our experiments:
+As you move forward, you will integrate various omics datasets into your
+experiment, taking careful steps to ensure accurate and meaningful
+insights.
+
+Omics datasets that will be incorporated in the experiment:
 
 - clinical data (20 features),
 - proteome (9734 features),
@@ -187,16 +196,13 @@ SCNV_log_ratio <-
 
 ## Connecting dataset
 
-First, we create a list of dataframes - this allows us to manipulate
-each dataframe individually and, at the same time, to take advantage of
-its common structure.
-
-The function **connect_datasets()** allows to create a list of named
-dataframes. Each element of a list will receive a name of a dataframe.
-We can call an additional parameter, `remove_original_data`, to
-indicate, whether the original dataframes should be removed. This is
-often needed as omics data can become quite heavy due to its dimension
-(tens to hunderds of thousands features).
+First off, create a list of dataframes. This step helps you to work with
+each dataframe on its own, while still keeping track of the overall
+structure. Use **connect_datasets()** to create a list where each
+dataframe gets its name. You can call an additional parameter,
+`remove_original_data`, to indicate whether the original dataframes
+should be removed. This is often needed as omics data can become quite
+heavy due to its dimension (tens to hundreds of thousands features).
 
 ``` r
 BRCA_data <- connect_datasets(clinical_data, proteome, methylation, miRNA, mutation, RNAseq, SCNV_log_ratio,
@@ -214,22 +220,21 @@ BRCA_data %>% summary()
 #> SCNV_log_ratio 24777  data.frame list
 ```
 
-When calling this function, we receive a list with 7 elements, named
-after data frames, with common “ID” variable at the beggining at each
-dataset.
+This gives you a list, structured in seven sections, each named after
+its original dataframe, each starting with a shared “ID” variable.
 
-When the preprocessing will be over, an early integration approach will
-be applied to concatenate all data into a unified dataframe.
+After the initial preprocessing, you can bring all the datasets together
+into one comprehensive dataframe.
 
-## Data exploration and preprocessing
+## Exploring and Refining the Data
 
-### Data coverage
+### Evaluating Data Availability
 
-While conducting omics experiment, different data might be available for
-different modalities due to various reason (e.g. detection limit,
-missing samples between laboratories, incorrect material for different
-type of analysis etc). Therefore it is a primary need to check data
-coverage between different sets.
+In omics experiments, it’s common to have varied availability of data
+for different sets due to various reasons (e.g. detection limit, missing
+samples between laboratories, incorrect material for other types of
+analysis, etc.). Therefore, it is a primary need to check data coverage
+between different sets early on.
 
 This can be easily obtained with **plot_coverage()** function:
 
@@ -239,15 +244,16 @@ plot_coverage(BRCA_data)
 
 <img src="man/figures/README-unnamed-chunk-9-1.png" width="100%" />
 
-As for the BRCA data, we see many combinations of data availability. The
-largest group (442 subjects) have complete data for 6 datasets (all data
-except proteome).
+For the BRCA data, you’ll notice various patterns of data availability,
+with the largest group (442 subjects) having complete data for six
+datasets, all except proteome.
 
-### Check your data
+### Understanding Your Dataset
 
-To discover the data structure, one can use **data_summary()** function.
-It presents number of samples together with number of variables and
-describes the content (number of numeric/character/factor columns):
+The **data_summary()** function can be used to discover the data
+structure. It presents the number of samples, together with the number
+of variables and describes the data content (number of
+numeric/character/factor columns):
 
 ``` r
 data_summary(BRCA_data)
@@ -269,13 +275,13 @@ data_summary(BRCA_data)
 #> 7                 1              0
 ```
 
-It’s helpful to discover at glance whether the data have required
-structure. This might be especially important when reading data from
-text files (e.g. for proteomics experiment).
+It’s helpful to discover whether the data has the required structure at
+a glance. This might be especially important when reading data from text
+files (e.g. for proteomics experiment).
 
-Nextly, we can explore each dataframe separately using two functions:
+Next, you can explore each dataframe separately using two functions:
 
-- **check_data()** will return base statistics about each numerical and
+- **check_data()** will return basic statistics about each numerical and
   non-numerical variables separately. It’s a simple way to check for
   suspicious variables (e.g. low number of unique positions):
 
@@ -314,8 +320,9 @@ check_data(BRCA_data$clinical_data)
 #> #   max <dbl>
 ```
 
-- **plot_stats()** will plot data based on statistics obtained with
-  **check_data()** function:
+- **plot_stats()** can visualize data based on statistics obtained with
+  **check_data()** function, as it might be tricky to examine all
+  variables separately:
 
 ``` r
 plot_stats(BRCA_data$RNAseq, metric_to_plot = mean)
@@ -337,10 +344,12 @@ Stats for mean across all variables
 This operation should be conducted separately for each dataframe, as
 each omic has its own golden standards for data preprocessing.
 
-Two functions have been implemented into **playOmics** package:
+Two handy functions have been implemented into **playOmics** package for
+this purpose:
 
-- **filter_below_threshold** - user can define a numeric threshold, for
-  which data are considered as valid in defined percentage of samples.
+- **filter_below_threshold** - allows you to define a numeric threshold
+  for which data are considered valid in a defined percentage of
+  samples.
 
 To illustrate how this function works, let’s filter RNA data to keep
 only variables with more than 3 reads in more than 50% of samples:
@@ -355,10 +364,11 @@ BRCA_data[["RNAseq"]] %>% dim()
 #> [1]  1093 15037
 ```
 
-After applying this filter, data reduced from 20k variables to ~15 k.
+After applying this filter, data was reduced from 20k variables to
+around 15k.
 
 - **filter missing data** - similar to above, but the variables are
-  removed based upon % of missing values (e.g. variables with more than
+  removed based on % of missing values (e.g. variables with more than
   50% of missing values will be removed):
 
 ``` r
@@ -373,8 +383,8 @@ BRCA_data[["miRNA"]] %>% dim()
 #> [1] 755 451
 ```
 
-Initially we had 824 columns in the miRNA data. After filtering for
-non-missing values in at least of 50% columns we ended up with 755
+Initially, we had 824 columns in the miRNA data. After filtering for
+non-missing values in at least 50% of columns, we ended up with 755
 columns.
 
 ## Classification
@@ -383,19 +393,19 @@ Finally, the heart of our package!
 
 ### Define analysis target
 
-Right now the playOmics package allows only for supervised binary
-classification experiment. Therefore it is crucial to define analysis
-target, which will be propagated to classification algorithm.
+Right now, the playOmics package allows only for **supervised binary
+classification experiments**. It is crucial then to define the analysis
+target, which will be propagated to the classification algorithm.
 
-If the data is structured as described in the previous sections, then we
-most likely will have one dataset that contains phenotype data
-e.g. whether patient survived or died. With **define_target()** function
-we are obligated to pass a name of this dataframe (e.g. “clinical
-data”), a name of a column which contains desired status and an
-indication of “positive” class (the one we want to predict with our
-analysis). Another argument, `id_variable` indicates name of column
-containing samples identifiers. As discussed previously, it should be
-common for all of the datasets to allow data merging.
+If the data is structured as described in the previous sections, you
+will most likely have one dataset containing phenotype data, e.g.,
+whether the patient survived or died. With **define_target()** function,
+you are obligated to pass the name of this dataframe (e.g. “clinical
+data”), the name of a column that contains the desired status, and an
+indication of “positive” class (the one you want to predict with our
+analysis). Another argument, `id_variable`, indicates the column’s name
+containing sample identifiers. As discussed previously, it should be
+common for all datasets to allow data merging.
 
 ``` r
 my_target <-
@@ -420,24 +430,25 @@ my_target
 #> [1] "lobular"
 ```
 
-### Train/test data split
+### Dividing the Data: Train/Test Split
 
-**split_data_into_train_test()** function splits the given data into
-training and testing sets. By passing a `target` argument to this
-function, we will obtain stratified split based on a target column.
-Stratification is performed on a phenotype dataframe, and based on this
-split, IDs are propagated to other datasets. Therefore the split might
-not always respect the proportion due to data missings.
+The **split_data_into_train_test()** function comes in handy when you
+need to divide your dataset into training and test subsets. By using the
+`target` argument, you can achieve a stratified split based on a
+specific column. This stratification occurs on a phenotype dataframe,
+and the IDs are accordingly assigned to other datasets. However, due to
+potential missing data, the split might not always respect the
+predefined proportion.
 
-We will use this function to split the data randomly with proportion
-90%/10%, so we can use the remaining 10% as a simulation of real data at
-the end of this experiment for demonstration purpose:
+To illustrate, you can use this function to split the data randomly with
+a proportion of 90%/10%, so we can use the remaining 10% as a simulation
+of real data at the end of this experiment for demonstration purposes:
 
 ``` r
 splitted_data <- split_data_into_train_test(BRCA_data, prop = 9 / 10, target = my_target)
 ```
 
-Let’s call the mentioned 10% data as “validation set” and leave it for
+Let’s call the mentioned 10% data a “validation set” and leave it for
 later:
 
 ``` r
@@ -445,36 +456,36 @@ validation_set <- splitted_data$test_data
 ```
 
 We will treat the `splitted_data$train_data` as a background for the
-modelling experiment, therefore let’s name them “modelling_set” for now:
+modeling experiment; let’s name them “modelling_set” for now:
 
 ``` r
 modelling_set <- splitted_data$train_data
 ```
 
-As a preparation to modelling process, we will use again the function
-**split_data_into_train_test()**:
+As a preparation for the modeling process, we will use again the
+function **split_data_into_train_test()**:
 
 ``` r
 BRCA_data_splitted <-
   split_data_into_train_test(modelling_set, prop = 8 / 10, target = my_target)
 ```
 
-### Prepare dataset for modelling
+### Prepare dataset for modeling
 
-In next step, we will prepare data for modelling using
-**prepare_data_for_modelling()** function. It will transform all
+In the next step, you can continue the preparation of data for modeling
+using **prepare_data_for_modelling()** function. It will transform all
 character and factor variables into “dummy” columns (e.g. column `sex`
-with two values: `male`, `female` will be transformed to two columns:
-`sex_male` and `sex_female` filled with 1/0 values) and translate
-logical columns into numbers. It also adds the dataset name to each
-variable to distinguish data.
+with two values: `male` and `female` will be transformed into two
+columns: `sex_male` and `sex_female` filled with 1/0 values) and
+translate logical columns into numbers. It also adds the dataset name to
+each variable to distinguish data.
 
 ``` r
 data_prepared <-
   prepare_data_for_modelling(data = BRCA_data_splitted$train_data, target = my_target)
 ```
 
-Also test set needs to be prepared, so the models can be validated on
+Also, a test set needs to be prepared so the models can be validated on
 corresponding data:
 
 ``` r
@@ -482,32 +493,32 @@ test_data_prepared <-
   prepare_data_for_modelling(BRCA_data_splitted$test_data, target = my_target)
 ```
 
-### Feature selection
+### Selecting features
 
-In the omics experiment it is often the case that number of features is
-many times larger than number of observations. Data like this are prone
-to overfit, therefore, before we attempt to predict the target, we need
-to reduce data size. We choose filter method (apart of wrapper or
-embedded methods) for the sake of performance.
+In the omics experiment, it is often the case that the number of
+features is many times larger than the number of observations. Data like
+this are prone to overfit; therefore, before we attempt to predict the
+target, we need to reduce data size. For efficiency, the filter method
+is chosen over wrapper or embedded methods.
 
 The **nested_filtering()** function performs n-times feature ranking for
-better data generalization. It works as follow:
+better data generalization. It works as follows:
 
 For each fold, “k-1” folds of training data are ranked to check their
-convergence with target in the univariate analysis fashion. This process
-is repeated k times and nextly, mean rank value from all runs is
-calculated. Different evaluation metrics are available (see more under:
-<https://mlr3filters.mlr-org.com/>).
+convergence with the target in the univariate analysis fashion. This
+process is repeated k times, and next, the mean rank value from all runs
+is calculated. Different evaluation metrics are available (see more
+under <https://mlr3filters.mlr-org.com/>).
 
 Variables might be selected in three ways:
 
 - by selecting defined “top n” features,
 - by selecting % of variables from each dataset,
-- or by defining a cut-off threshold for metric.
+- or by defining a cut-off threshold for a selected metric.
 
-What’s important, at this level we are still operating on each dataset
-separately, which give us opportunity to preserve equal number of slots
-for all data frames.
+What’s important, at this level, we are still operating on each dataset
+separately, which allows us to preserve an equal number of slots for all
+data frames.
 
 !!!! install.packages(“mlr3filters”, version=‘0.6.0’) -? due to missing
 values handling
@@ -525,43 +536,43 @@ data_filtered <-
   )
 ```
 
+This approach ensures you’re working with the most relevant features,
+optimizing the model’s performance and efficiency.
+
 ### Modelling
 
 The **create_multiple_models()** function is a comprehensive tool to
 build multiple machine learning models using varying combinations of
-predictor variables in order to discover which yields the best results.
+predictor variables to discover which yields the best results.
 
 By default, the function examines combinations of predictor variables up
-to a set of three, but if you’re feeling adventurous, you can instruct
-it to consider more combinations by adjusting the `n_max` parameter.
+to a set of three. Still, if you’re feeling adventurous, you can
+instruct it to consider more combinations by adjusting the `n_max`
+parameter.
 
-At the heart of the function is the logistic regression algorithm—a
-well-established method used for predicting binary outcomes. The choice
-of logistic regression ensures that the models produced are both
-interpretable and reliable, making them a great fit for a wide range of
-practical applications.
+The logistic regression algorithm is at the heart of the function—a
+well-established method for predicting binary outcomes. The choice of
+logistic regression ensures that the models produced are both
+interpretable and reliable, making them an excellent fit for a wide
+range of practical applications.
 
 You then feed in your training and testing data using the `train_data`
 and `test_data` parameters, respectively. Additionally, the function
-needs some clarity about which column in your data is the `target` (or
-dependent) variable, and which one serves as an identifier. This is
-essential for the function to properly focus on the modeling process.
+needs clarity about which column in your data is the `target` (or
+dependent) variable and which serves as an identifier. This is essential
+for the function to focus on the modeling process properly.
 
-In this step, data will finally connect into one dataframe using early
-integration approach.
+In this step, data will finally connect into one dataframe using the
+early integration approach.
 
 When forming the single logistic regression model, missing data are
-eventually removed. The maximum delay of this step is crucial, because
-it ensures we extract the most value from your dataset. It’s especially
-vital for omics data; sometimes different omics don’t always align,
+eventually removed. The maximum delay of this step is crucial because it
+ensures we extract the most value from your dataset. It’s especially
+vital for omics data; sometimes, different omics don’t always align,
 meaning a data point might be missing in one omic but present in
 another. And if you’re dealing with rare diseases, this step is a
 lifesaver since it helps us maximize the data size, making the most of
 every single data point you have.
-
-Nieoptymalne zapisywanie danych - BRCA_data 550 MB, BRCA_data_splitted -
-450 MB, data prepared - 360 MB, modelling_set - 450 MB, splitted_data -
-500 MB -? razem prawie 3 GB!!!
 
 ``` r
 create_multiple_models(
@@ -587,17 +598,16 @@ create_multiple_models(
 )
 ```
 
-When you’re running **create_multiple_models()**, you have the power to
-trim away models that aren’t up to the mark. By setting `trim_models` to
-TRUE, you’re instructing the function to be watchful and get rid of
-models that don’t meet a certain standard. This “standard” or
-“benchmark” is defined by you through the `trim_metric` and
-`trim_threshold` parameters. For instance, with the default settings, if
-a model’s performance (measured using Matthews Correlation Coefficient
-on the training data) is below 0.3, it gets deleted. This trimming
-process ensures you’re left with the best-performing models, making your
-analysis more efficient and insightful, especially when handling complex
-datasets.
+When you’re running **create_multiple_models()**, you can trim away
+models that aren’t up to the mark. By setting `trim_models` to TRUE,
+you’re instructing the function to be watchful and eliminate models that
+don’t meet a certain standard. This “standard” or “benchmark” is defined
+by you through the `trim_metric` and `trim_threshold` parameters. For
+instance, with the default settings, if a model’s performance (measured
+using the Matthews Correlation Coefficient on the training data) is
+below 0.3, it gets deleted. This trimming process ensures you’re left
+with the best-performing models, making your analysis more efficient and
+insightful, especially when handling complex datasets.
 
 Lastly, for those who value robustness in their models, the function
 offers an option to validate the significance of your results using
@@ -607,31 +617,48 @@ shuffle your data to ascertain the models’ significance.
 
 ### Performance
 
-The **create_multiple_models()** function can run in parallel, although
-the computation resources needed for the experiment might be extensive.
+The **create_multiple_models()** function operates with considerable
+efficiency, even as it juggles multiple computations in parallel.
+However, it’s important to note that the computational resources
+required might be substantial, depending on the specific experimental
+conditions.
 
-There are two key components of function performance: - `n_max` - the
-higher the number of variables stated in one model, the higher number of
-combination to assess. The no. of combinations are growing cumulatively,
-which means e.g. to build 4-predictors models, first it will iterate
-through 2- and 3-element combinations. - number of variables selected
-for experiment - the combinations are created without repetition
+Two key components significantly influence the performance and
+computational demands of this function. The first one is `n_max`. This
+parameter determines the maximum number of variables considered in one
+model, and consequently, the higher its value, the greater the number of
+combinations the function needs to assess. This impacts the
+computational load exponentially since the function when dealing with
+models comprising multiple predictors, will systematically sift through
+all possible combinations of lesser elements before assessing more
+complex, multifaceted combinations.
+
+The second component is the actual number of variables selected for the
+experiment. The selection of variables is critical as the function
+generates combinations without repetition, increasing the computational
+demands with each added variable. This means that a thoughtful selection
+of variables and a calibrated setting of the `n_max` parameter are
+crucial to managing the function’s computational intensity efficiently,
+allowing us to optimize the experiment’s performance without
+compromising the accuracy and reliability of the results obtained.
 
 <img src="man/figures/README-unnamed-chunk-24-1.png" width="100%" />
 
-### Results
+### Logging Models and Details
 
-Within the **create_multiple_models()** function, each model, along with
-its associated details, is meticulously logged. This not only preserves
-the model’s structure and results, but also ensures that it can be
-easily retrieved and deployed in production environments, making it
-ready for real-world applications. By providing the unique name through
-the `experiment_name` parameter, the directory is created where all the
-results, both detailed and summarized, get saved.
+Each model and its associated details are logged within the
+**create_multiple_models()** function. This not only preserves the
+model’s structure and results, but also ensures that it can be easily
+retrieved and deployed in production environments, making it ready for
+real-world applications. When providing the unique name through the
+`experiment_name` parameter, the directory is created where all the
+detailed and summarized results get saved.
 
-The overall models’ results can be easily obtained by using
+### Understanding the Results
+
+The overall models’ results can be easily collected by using
 **read_model_data()** function. The additional parameter `directory`
-might be passed if the directory differs from working directory.
+might be passed if the directory differs from the working directory.
 
 ``` r
 results <- read_model_data(
@@ -640,11 +667,11 @@ results <- read_model_data(
   )
 ```
 
-The `results` dataframe can be viewed as standard df. However, to help
-user navigate in the data, the shiny application has been prepared. Due
-to data missingness, we will remove from the final assessment the models
-where number of lobular samples in test data is lower than 10. We will
-call the **results_GUI()** function to start shiny application:
+The Shiny application has been developed to facilitate user interaction
+with the data. Due to data missingness, we will remove from the final
+assessment the models where the number of lobular samples in test data
+is lower than 10. You can access the Shiny application with the
+**results_GUI()** function:
 
 ``` r
 results %>%
@@ -652,18 +679,26 @@ results %>%
   results_GUI(target = my_target)
 ```
 
-![GUI overview](man/shiny_screenshots/GUI.png) At the top of the panel,
-the main table with all models’ stats is presented. The dataframe has
-two additional columns: “Data” column will show the train data to the
-user, while “Predict” column allows to make direct prediction from a
-selected model. The exact usage, together with the bottom panel
-functions, will be shown and described in the following paragraphs.
+<figure>
+<img src="man/shiny_screenshots/GUI.png" alt="GUI overview" />
+<figcaption aria-hidden="true">GUI overview</figcaption>
+</figure>
 
-#### Experiment overview panel
+The primary results table in the panel’s upper section showcases all
+models’ statistics. It includes two additional columns: The “Data”
+column, revealing the training data, and the “Predict” column, enabling
+predictions directly from the selected model. Subsequent sections will
+elucidate the exact usage and functionalities of the bottom panel.
 
-In this panel user is invited to create histogram plots presenting the
-chosen experiment’s metric. By clicking a “Add new plot” button,
-multiple plots might be created to help user visualize the outcome.
+Through these panels and functionalities, you gain a comprehensive
+understanding of the models and their performance, enabling you to
+interact with and analyze the data effectively and intuitively.
+
+#### Exploring the Experiment Overview Panel
+
+In this panel, you have the option to create histogram plots of the
+selected experiment’s metric. By clicking the “Add New Plot” button, you
+can generate multiple plots to better visualize the outcomes:
 
 <figure>
 <img src="man/shiny_screenshots/experiment_overview.png"
@@ -672,11 +707,11 @@ alt="Experiment overview - MCC metric among the experiment for train and test da
 the experiment for train and test data</figcaption>
 </figure>
 
-#### Analytes overview panel
+#### Diving into the Analytes Overview Panel
 
-The analytes panel presents statistics for single molecules that went
-into evaluation while creating models and it’s mean metrics among all
-models in which they appeared:
+This panel discloses statistics for individual molecules evaluated
+during model creation, along with their average metrics across all
+models in which they were included:
 
 <figure>
 <img src="man/shiny_screenshots/analytes_overview.png"
@@ -686,15 +721,15 @@ alt="Analytes overview" />
 
 #### Single model overview panel
 
-By clicking the “show data” button next to the selected model, the user
-gets redirected to the “single model overview” panel. Here, the train
-data are shown. Moreover, the 2d or 3d plot visualizing the data is
-presented together with the predictors stats (median values + Q1-Q3).
+By activating the “show data” button next to the desired model, you are
+redirected to this panel. Here, you can observe the training data and
+either a 2D or 3D plot representing the data, accompanied by the
+predictor’s statistics (median values + Q1-Q3).
 
 <figure>
 <img src="man/shiny_screenshots/single_model_overview.png"
-alt="GUI overview" />
-<figcaption aria-hidden="true">GUI overview</figcaption>
+alt="Single model overview" />
+<figcaption aria-hidden="true">Single model overview</figcaption>
 </figure>
 
 #### Prediction panel
@@ -702,26 +737,27 @@ alt="GUI overview" />
 When you turn on the `explain` option in the
 **create_multiple_models()** function, DALEX looks closely at the model.
 This gives a clearer picture of how the model works and helps anyone who
-wants to know why a model makes a certain choice.
+wants to know why a model makes a particular choice.
 
-It uses local model explanations to understand how different parts
-affect a prediction. SHAP values, presented on a boxplots, measure the
-contribution of a variable to a final prediction.
+It uses local model explanations to understand how different composites
+affect a prediction. SHAP values, presented on boxplots, measure a
+variable’s contribution to a final prediction.
 
 For models with a binary outcome, such as classifying breast cancer
 types as “ductal” or “lobular”, SHAP values help to interpret the
 influence of features on the model’s predicted probabilities, rather
-than the explicit “ductal”/“lobular” outcomes. In this setting, a
-positive SHAP value for a specific feature means that the feature
+than the explicit “ductal”/“lobular” statuses. In this setting, where
+the “lobular” status has been set as a positive class in a `target`
+object, a positive SHAP value for a specific feature means that it
 increases the predicted probability of an instance being classified as
 “lobular”. Conversely, a negative SHAP value means the feature decreases
 that likelihood, making the instance more likely to be classified as
-“ductal”. For instance, if a model’s average predicted likelihood for a
-cancer type being “lobular” is 0.9, and a particular sample’s SHAP value
-for a specific feature (say, RNA species) is 0.25, it indicates that
-this feature increases its “lobular” probability by 25%. When you sum
-all the SHAP values for that type and add it to the baseline of 0.9, you
-obtain the model’s predicted probability for that specific sample being
+“ductal”. Suppose a model’s average predicted probability for a cancer
+type being “lobular” is 0.9, and a particular sample’s SHAP value for a
+specific feature (say, RNA species) is 0.25. In that case, it indicates
+that this feature increases its “lobular” probability by 25%. When you
+sum all the SHAP values for that type and add it to the baseline of 0.9,
+you obtain the model’s predicted probability for that specific sample
 classified as “lobular”.
 
 For more information, check out: <https://dalex.drwhy.ai/>
