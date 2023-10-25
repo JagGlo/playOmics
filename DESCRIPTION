@@ -1,22 +1,28 @@
 Package: playOmics
 Type: Package
-Title: What the Package Does (Title Case)
-Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+Title: A multi-omics pipeline for biomarker discovery
+Version: 1.0.0
+Author: Jagoda Glowacka-Walas
+Maintainer: Jagoda Glowacka-Walas <jagaaa92@gmail.com>
+Description: This package provides a suite of tools for the comprehensive analysis and visualization 
+    of multi-omics datasets. It facilitates data cleaning, integration, and preprocessing; statistical analysis and modeling; 
+    and detailed interpretability of models using SHAP values and interactive visualizations via a Shiny application interface. 
+    Key features include streamlined workflow for data input, feature selection, model creation, performance logging, 
+    and an MLOps-oriented approach for model deployment. The package emphasizes open science principles, ensuring 
+    reproducibility and transparency in multi-omics data analysis.
+License: GPL-3
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.3
 Suggests: 
     data.table,
     rmarkdown,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Depends: 
-    tidyverse
+    tidyverse,
+    knitr,
+    R (>= 2.10)
 Imports: 
     carrier,
     DALEX,
@@ -26,9 +32,8 @@ Imports:
     ggplot2,
     ggupset,
     logger,
-    mlflow,
     mlr3,
-    mlr3filters,
+    mlr3filters (<= 0.6.0),
     parallel,
     parsnip,
     recipes,
@@ -39,5 +44,9 @@ Imports:
     tidyr,
     tune,
     workflows,
-    yardstick
+    yardstick,
+    shiny,
+    DT,
+    plotly
 Config/testthat/edition: 3
+URL: https://github.com/JagGlo/playOmics

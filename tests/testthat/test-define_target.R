@@ -32,6 +32,4 @@ test_that("define_target function creates a target list with correct attributes"
   expect_equal(target2$id_variable, "ID")
   expect_equal(target2$target_variable, "diabetes")
   expect_null(target2$positive_class)
-
 })
-

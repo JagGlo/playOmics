@@ -19,19 +19,16 @@
 #'
 #' @export
 
-connect_datasets <- function(..., remove_original_data = TRUE){
-
+connect_datasets <- function(..., remove_original_data = TRUE) {
   varnames <- lapply(substitute(list(...))[-1], deparse) %>% unlist()
 
   data <- list(...)
 
   names(data) <- varnames
 
-  if(remove_original_data){
-    rm(list= varnames, envir = .GlobalEnv)
+  if (remove_original_data) {
+    rm(list = varnames, envir = .GlobalEnv)
   }
 
   return(data)
 }
-
-

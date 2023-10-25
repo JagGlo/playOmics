@@ -1,16 +1,6 @@
 library(shiny)
-library(DT)
-library(plotly)
 
-remove_shiny_inputs <- function(id, .input) {
-  invisible(
-    lapply(grep(id, names(.input), value = TRUE), function(i) {
-      .subset2(.input, "impl")$.values$remove(i)
-    })
-  )
-}
-
-results_GUI <- function(results) {
+results_GUI <- function(results, target) {
   ui <- fluidPage(
     column(uiOutput("choose_metrics"), width = 3),
     DT::dataTableOutput("data"),
@@ -31,9 +21,10 @@ results_GUI <- function(results) {
       tabPanel(
         "Single model overview",
         DT::dataTableOutput("present_data"),
-        plotlyOutput("3dplot"),
+        plotly::plotlyOutput("3dplot"),
         DT::dataTableOutput("variable_stats"),
-        # plotOutput("variable_stats_plots")
+        permutationUI("permutations"),
+        plotOutput("variable_stats_plots")
       ),
       tabPanel(
         "Prediction",
@@ -47,7 +38,7 @@ results_GUI <- function(results) {
 
 
   server <- function(input, output, session) {
-    values <- reactiveValues(df_data = NULL, model_link = NULL, prediction_data = NULL, prediction_result = NULL)
+    values <- reactiveValues(dir = NULL, df_data = NULL, model_link = NULL, prediction_data = NULL, prediction_result = NULL)
 
     shinyInput <- function(FUN, len, id, ...) {
       inputs <- character(len)
@@ -189,8 +180,10 @@ results_GUI <- function(results) {
       )
 
       selectedRow <- as.numeric(strsplit(input$present_data_btn, "_")[[1]][2])
-      link_to_data <- paste(results$model_dir[selectedRow], "train_data.Rds", sep = "/")
+      values$dir <- results$model_dir[selectedRow]
+      link_to_data <- paste(values$dir, "train_data.Rds", sep = "/")
       values$df_data <<- readRDS(link_to_data)
+      permutationServer("permutations", values$dir, target)
     })
 
     output$present_data <- DT::renderDT({
@@ -214,38 +207,38 @@ results_GUI <- function(results) {
 
     output$variable_stats <- DT::renderDT({
       req(nrow(values$df_data) > 0)
-      count_stats_per_model(values$df_data) %>%
-        datatable(
+      count_stats_per_model(values$df_data, target) %>%
+        DT::datatable(
           options = list(searching = FALSE, paging = FALSE, server = FALSE, escape = FALSE, selection = "none")
         )
     })
 
-    # output$variable_stats_plots <- renderPlot({
-    #   lapply(1:(length(values$df_data)-1), function(i){
-    #
-    #    data <- values$df_data[,c(i, length(values$df_data))]
-    #
-    #    unique_counts <-
-    #      data %>%
-    #      summarise_all(n_distinct)
-    #
-    #    names_to_fct <- names(unique_counts[which(unique_counts == 2)])
-    #
-    #    data <-
-    #      data %>%
-    #      mutate_at(names_to_fct, as.factor)
-    #
-    #    if(is.numeric(data[1])){
-    #      raincloud_plot(data)
-    #    } else if(is.factor(data[1])){
-    #      ggplot(aes(x = get(names(data)[2]), y = get(names(data)[1]), fill = get(names(data)[2])), data = data)
-    #    }
-    #
-    #   })
-    #
-    # })
+    output$variable_stats_plots <- renderPlot({
+      lapply(1:(length(values$df_data)-1), function(i){
 
-    output$`3dplot` <- renderPlotly({
+       data <- values$df_data[,c(i, length(values$df_data))]
+
+       unique_counts <-
+         data %>%
+         summarise_all(n_distinct)
+
+       fct_names <- names(unique_counts[which(unique_counts == 2)])
+
+       data <-
+         data %>%
+         mutate_at(fct_names, as.factor)
+
+       if(is.numeric(data[1])){
+         raincloud_plot(data)
+       } else if(is.factor(data[[1]])){
+         ggplot(aes(x = get(names(data)[2]), y = get(names(data)[1]), fill = get(names(data)[2])), data = data)
+       }
+
+      })
+
+    })
+
+    output$`3dplot` <- plotly::renderPlotly({
       req(input$present_data_btn)
       if (length(values$df_data) == 3) {
         p <-
@@ -253,7 +246,7 @@ results_GUI <- function(results) {
           ggplot(aes_(x = as.name(names(values$df_data)[1]), y = as.name(names(values$df_data)[2]), color = as.name(target$target_variable))) +
           geom_jitter(width = 0.1, height = 0.1) +
           theme_bw()
-        ggplotly(p)
+        plotly::ggplotly(p)
       } else {
         plotly::plot_ly(values$df_data,
           x = as.formula(paste0("~\u0060", names(values$df_data)[1], "\u0060")),

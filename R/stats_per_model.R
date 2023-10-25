@@ -1,23 +1,40 @@
-# data
-#
-# molecules_to_count <-
-#   raw_values[,c("seizures_any", molecules_to_count)] %>%
-#   mutate_at(vars(starts_with("rs")), as.factor) %>%
-#   mutate_at(vars(starts_with("TSC")), as.factor)
-#
-# count(distinct(data))
+#' Count Statistics per Model
+#'
+#' This function calculates statistics for the given dataset per target level.
+#' It first detects binary columns and converts them to factors.
+#' Then, for numeric columns, it calculates the median, first quartile, and third quartile.
+#' For factor columns, it calculates percentages and counts per factor level.
+#'
+#' @param data A dataframe containing the data for which statistics should be calculated.
+#' @param target A list containing the target variable details. This list should contain:
+#'   `$target_variable` which specifies the target variable name as a string.
+#'
+#' @return A dataframe with calculated statistics per target level.
+#'   - For numeric variables: Median, Q1, Q3 values.
+#'   - For factor variables: Level percentages and counts.
+#'
+#' @examples
+#' \dontrun{
+#' df <- data.frame(target_var = c("A", "A", "B", "B"),
+#'                  num_var = c(1, 2, 2.5, 3),
+#'                  fct_var = c("Yes", "No", "Yes", "No"))
+#' target_list <- list(target_variable = "target_var")
+#' count_stats_per_model(df, target_list)
+#' }
+#'
+#' @export
 
-count_stats_per_model <- function(data){
+count_stats_per_model <- function(data, target) {
 
   unique_counts <-
     data %>%
     summarise_all(n_distinct)
 
-  names_to_fct <- names(unique_counts[which(unique_counts == 2)])
+  fct_names <- names(unique_counts[which(unique_counts == 2)])
 
   data <-
-  data %>%
-    mutate_at(names_to_fct, as.factor)
+    data %>%
+    mutate_at(fct_names, as.factor)
 
   data %>%
     group_by(!!rlang::sym(target$target_variable)) %>%
@@ -25,11 +42,14 @@ count_stats_per_model <- function(data){
     left_join(
       data %>%
         group_by(!!rlang::sym(target$target_variable)) %>%
-        summarise(across(where(is.numeric),
-                         list(median = ~ median(.x, na.rm = TRUE),
-                              Q1 = ~ quantile(.x, 0.25, na.rm = TRUE),
-                              Q3 = ~ quantile(.x, 0.75, na.rm = TRUE)
-                              ))) %>%
+        summarise(across(
+          where(is.numeric),
+          list(
+            median = ~ median(.x, na.rm = TRUE),
+            Q1 = ~ quantile(.x, 0.25, na.rm = TRUE),
+            Q3 = ~ quantile(.x, 0.75, na.rm = TRUE)
+          )
+        )) %>%
         mutate_if(is.numeric, round, 2) %>%
         gather(key, value, -!!rlang::sym(target$target_variable)) %>%
         separate(key, c("key", "what"), sep = "_(?=Q|m|n)") %>%
@@ -39,78 +59,30 @@ count_stats_per_model <- function(data){
         spread(key, numbers),
       by = target$target_variable
     ) %>%
-    # left_join(
-    #   data %>%
-    #     select(where(is.factor)) %>%
-    #     pivot_longer(!(!!rlang::sym(target$target_variable)), names_to = "variable", values_to = "value") %>%
-    #     group_by(!!rlang::sym(target$target_variable), variable, value) %>%
-    #     count() %>%
-    #     ungroup() %>%
-    #     left_join(
-    #     data %>%
-    #       group_by(!!rlang::sym(target$target_variable)) %>%
-    #       count() %>%
-    #       rename(n_total = 2),
-    #     by = target$target_variable
-    #     ) %>%
-    #     mutate(pcent =  scales::percent(n/n_total, accuracy =1)) %>%
-    #     mutate(numbers = paste0(value, ":", pcent, "(n=", n, ")")) %>%
-    #     select(-value, -n, -n_total, -pcent) %>%
-    #     group_by(variable, !!rlang::sym(target$target_variable)) %>%
-    #     summarise(stats = paste(numbers, collapse = "/\n")) %>%
-    #     spread(variable, stats)
-    # ) %>%
+    left_join(
+      data %>%
+        select(where(is.factor)) %>%
+        pivot_longer(!(!!rlang::sym(target$target_variable)), names_to = "variable", values_to = "value") %>%
+        group_by(!!rlang::sym(target$target_variable), variable, value) %>%
+        count() %>%
+        ungroup() %>%
+        left_join(
+          data %>%
+            group_by(!!rlang::sym(target$target_variable)) %>%
+            count() %>%
+            rename(n_total = 2),
+          by = target$target_variable
+        ) %>%
+        mutate(pcent = scales::percent(n / n_total, accuracy = 1)) %>%
+        mutate(numbers = paste0(value, ": ", pcent, " (n=", n, ")")) %>%
+        select(-value, -n, -n_total, -pcent) %>%
+        group_by(variable, !!rlang::sym(target$target_variable)) %>%
+        summarise(stats = paste(numbers, collapse = " | ")) %>%
+        ungroup() %>%
+        pivot_wider(names_from = variable, values_from = stats)
+    ) %>%
     mutate(!!rlang::sym(target$target_variable) := paste0(!!rlang::sym(target$target_variable), "\n(n=", n, ")")) %>%
     select(-n) %>%
     gather(variable, value, -!!rlang::sym(target$target_variable)) %>%
     spread(!!rlang::sym(target$target_variable), value)
-}
-
-
-bar_plot <- function(dataset, variable, condition = treatment, scale_name = variable) {
-  variable <- enquo(variable)
-  condition <- enquo(condition)
-
-  dataset %>%
-    group_by(!! condition) %>%
-    count(!! variable) %>%
-    add_column(agreement = "all", .before = 1) %>%
-    mutate_if(is.numeric, funs(pcent = (. / sum(.)))) %>%
-    rename(value = n) %>%
-    ggplot(aes_(x = condition, y = ~pcent, label = ~value, fill = variable)) +
-    geom_bar(stat = "identity") +
-    geom_text(position = position_stack(vjust = 0.5)) +
-    facet_wrap(~agreement) +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 30, hjust = 1), legend.position = "top") +
-    xlab(NULL) +
-    ylab("proportion") +
-    scale_fill_discrete(scale_name) +
-    scale_y_continuous(labels = scales::percent)
-}
-
-raincloud_plot <- function(data, title = NULL){
-
-  ggplot(aes(x = get(names(data)[2]), y = get(names(data)[1]), fill = get(names(data)[2])), data = data)+
-    # ggdist::stat_halfeye(
-    #   adjust = 0.5,
-    #   justification = -.2,
-    #   .width = 0,
-    #   point_colour = NA,
-    #   scale = 0.65
-    # ) +
-    geom_point(aes(color = get(names(data)[2])), position = position_jitter(width = .15, height = 0), size = .25) +
-    geom_boxplot(
-      aes(fill = NULL),
-      width = 0.2,
-      outlier.colour = NA,
-      alpha = 0.5
-    ) +
-    # scale_color_manual(values = pal_nejm("default")(5)[2:3]) +
-    # scale_fill_manual(values = pal_nejm("default")(5)[2:3]) +
-    labs(x = NULL, title = title) +
-    theme_classic() +
-    theme(legend.position = "none",
-          axis.text.x= element_blank(),#element_text(angle=60, hjust=1),
-          text=element_text(size=12,  family="Helvetica", colour = "black"), axis.text = element_text(size = 12, colour = "black"), plot.title = element_text(size=12, colour = "black"), strip.text.x = element_text(size = 10), strip.text.y = element_blank(), panel.grid.minor = element_blank(), strip.background.x = element_rect(fill = "white"))
 }

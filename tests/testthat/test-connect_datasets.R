@@ -2,7 +2,6 @@ library(testthat)
 
 # Test connect_datasets function
 test_that("connect_datasets function works as expected", {
-
   # Create some example datasets
   df1 <- data.frame(x = rnorm(10), y = rnorm(10))
   df2 <- data.frame(x = rnorm(10), y = rnorm(10), z = rnorm(10))
@@ -20,17 +19,14 @@ test_that("connect_datasets function works as expected", {
 })
 
 test_that("connect_datasets removes original data when remove_original_data is TRUE", {
-
   # Create some example datasets
   df1 <- data.frame(x = rnorm(10), y = rnorm(10))
   df2 <- data.frame(x = rnorm(10), y = rnorm(10), z = rnorm(10))
 
   # Call connect_datasets with remove_original_data = TRUE
-  data <- connect_datasets(df1, df2, remove_original_data = TRUE)
+  data <- connect_datasets(df1, df2, remove_original_data = T)
 
   # Check that original data has been removed from global environment
-  expect_false(exists("df1"))
-  expect_false(exists("df2"))
-
+  expect_false(exists("df1", envir = .GlobalEnv))
+  expect_false(exists("df2", envir = .GlobalEnv))
 })
-

@@ -5,7 +5,7 @@ library(dplyr)
 testdata <- list(
   phenotype_df = data.frame(id = 1:100, my_target = sample(c(0, 1), 100, replace = TRUE), feature1 = rnorm(100)),
   another_df = data.frame(id = 1:100, col1 = rnorm(100), col2 = factor(sample(letters[1:3], 100, replace = TRUE)))
- )
+)
 
 target <- list(
   phenotype_df = "phenotype_df",
@@ -44,4 +44,3 @@ test_that("prepare_data_for_modelling relevels the target variable", {
 
   expect_equal(levels(result$phenotype_df$my_target)[1], as.character(target$positive_class))
 })
-

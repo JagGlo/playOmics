@@ -71,13 +71,13 @@ predictionServer <- function(id, df, values) {
       values$prediction_data <- new_data
     })
 
-    output$show_prediction <- renderDT({
+    output$show_prediction <- DT::renderDT({
       req(!is.null(values$prediction_data))
       predicted <- load_and_predict(values$model_link, values$prediction_data)
       values$prediction_result <- predicted
       values$prediction_result %>%
         mutate_if(is.numeric, round, 3) %>%
-        datatable(
+        DT::datatable(
           rownames = FALSE,
           options = list(searching = FALSE, paging = FALSE, server = FALSE, escape = FALSE, selection = "none")
         )
@@ -110,7 +110,7 @@ predictionServer <- function(id, df, values) {
         ) +
         geom_boxplot(width = 0.5) +
         theme_bw() +
-        theme(legend.position = "none") +
+        theme(legend.position = "none", axis.text = element_text(size = 12)) +
         labs(y = NULL)
     })
   })

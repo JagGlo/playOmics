@@ -1,82 +1,29 @@
-read_all_data_for_dir <- function(dir){
-  dirs <- list.dirs(dir, full.names = F, recursive = F)
-  # tryCatch({
-  my_results <-
-    lapply(dirs, function(dir_name){
-      if(dir_name == "params"){
-        files <- list.files(paste(dir, dir_name, sep = "/"))
-        read <-
-          lapply(1:length(files), function(i){
-            read_file(paste(dir, dir_name, files[i], sep = "/"))
-          })
-        names(read) <- files
-        df <-
-          read %>%
-          unlist(recursive = FALSE) %>%
-          enframe() %>%
-          unnest(cols = c()) %>%
-          spread(name, value) %>%
-          mutate(across(starts_with("n_"), as.numeric))
-        return(df)
-      } else if(dir_name == "metrics"){
-        files <- list.files(paste(dir, dir_name, sep = "/"))
-        read <-
-          lapply(1:length(files), function(i){
-            file <- read_file(paste(dir, dir_name, files[i], sep = "/"))
-            result <- as.numeric(strsplit(file, " ")[[1]][2])
-            return(result)
-          })
-        names(read) <- files
-        df <-
-          read %>%
-          unlist(recursive = FALSE) %>%
-          enframe() %>%
-          unnest(cols = c()) %>%
-          spread(name, value) %>%
-          mutate_all(as.numeric)
-        return(df)
-      } else if(dir_name == "artifacts"){
-        directory <- as.list(list.files(paste(dir, dir_name, sep = "/"), full.names = T))
-        names(directory) <- list.files(paste(dir, dir_name, sep = "/")) %>% stringr::str_remove("\\.rds")
-        return(directory)
-      } else{
-        return(NULL)
-      }
-    })
-  names(my_results) <- dirs
-  res <- my_results[c("params", "metrics", "artifacts")] %>% flatten() %>% bind_rows()
-  return(res)
-  # }, error = function(error_condition) {
-  #   return(NULL)
-  # })
-}
-
-#' Get experiment metrics
+#' Get experiment metrics from stored RDS files
 #'
+#' This function reads and combines metrics data from RDS files stored in a specified directory.
 #'
+#' @param experiment_name The name of the experiment.
+#' @param directory The directory where the RDS files are stored. Default is the current working directory (\code{getwd()}).
 #'
-#' @param
-#
-#' @return
+#' @return A data frame containing the combined experiment metrics.
 #'
 #' @examples
+#' # Read experiment metrics from the "my_experiment" directory
+#' metrics_data <- read_model_data("my_experiment")
+#'
 #' @export
 
-get_metrics_for_all_data <- function(experiment_name, n_cores = detectCores()/4){
-
-  cl <- parallel::makeForkCluster(n_cores)
-
-  models_to_read <- list.dirs(paste(getwd(), experiment_name, sep ="/"), recursive = F)
-
+read_model_data <- function(experiment_name, directory = getwd()) {
+  # Read and combine metrics data from RDS files
   results <-
-  parallel::parLapplyLB(cl, 1:length(models_to_read), function(model){
-    # lapply(1:length(models_to_read), function(model){
-    read_all_data_for_dir(models_to_read[model])
-  }) %>%
+    lapply(list.files(path = paste(directory, experiment_name, sep = "/"), pattern = "*.Rds", full.names = T), function(f) {
+      readRDS(f)
+    }) %>%
     bind_rows()
 
-  parallel::stopCluster(cl)
-  rm(cl)
+  if (nrow(results) == 0) {
+    stop(paste("No metrics data found in the specified directory. Please verify if the model data has been logged to following directory:", paste(directory, experiment_name, sep = "/")))
+  }
 
   return(results)
 }

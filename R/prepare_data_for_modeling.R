@@ -1,9 +1,9 @@
 #' Prepare data for modelling
 #'
 #' This function preprocesses the data for modelling, including one-hot encoding
-#' of non-numeric columns, converting the ID variable to a character, and
-#' converting the target variable to a factor. It also adds the dataset name to
-#' each variable to distinguish data.
+#' of non-numeric columns, translating logical columns into numbers, converting the ID variable to a character
+#' and the target variable to a factor. It also adds the dataset name to
+#' each variable to distinguish data and relevels the target variable to set the positive class.
 #'
 #' @param data A named list of data.frames containing the data to be prepared for modelling.
 #' @param target A named list with the following elements:
@@ -30,13 +30,10 @@
 #'
 #' prepared_data <- prepare_data_for_modelling(data, target)
 #' }
-
 # Define a function that prepares data for modeling
 prepare_data_for_modelling <- function(data, target) {
-
   data <-
     sapply(names(data), function(dataframe) {
-
       logger::log_info("Preparing {dataframe} dataframe")
 
       df <- data[[dataframe]]
@@ -48,7 +45,7 @@ prepare_data_for_modelling <- function(data, target) {
           df %>%
           # Set up a recipe for one-hot encoding
           recipes::recipe(~.) %>%
-          recipes::step_dummy(non_numeric_vars, one_hot = T) %>%
+          recipes::step_dummy(all_of(non_numeric_vars), one_hot = T) %>%
           recipes::prep() %>%
           # Apply the recipe to the data
           recipes::bake(df) %>%
@@ -64,11 +61,10 @@ prepare_data_for_modelling <- function(data, target) {
           mutate(!!target$target_variable := as.factor(!!sym(target$target_variable))) %>%
           relocate(target$id_variable, target$target_variable)
 
-          #Relevel target variable
-          if (!is.null(target$positive_class)) {
-            df <- df %>% mutate(!!target$target_variable := fct_relevel(!!sym(target$target_variable), as.character(target$positive_class)))
-          }
-
+        # Relevel target variable
+        if (!is.null(target$positive_class)) {
+          df <- df %>% mutate(!!target$target_variable := fct_relevel(!!sym(target$target_variable), as.character(target$positive_class)))
+        }
       } else {
         df <- df %>% relocate(target$id_variable)
       }
@@ -77,7 +73,5 @@ prepare_data_for_modelling <- function(data, target) {
       col_names <- c(target$id_variable, setdiff(names(df), target$id_variable))
       col_names <- ifelse(col_names == target$target_variable | col_names == target$id_variable, col_names, paste0(col_names, " [", dataframe, "]"))
       setNames(df, col_names)
-
     }, simplify = FALSE, USE.NAMES = TRUE)
-
 }

@@ -22,17 +22,37 @@ stopIfConditionFails <- function(condition, message) {
   }
 }
 
+# prepare test data
+prepare_test_data <- function(test_data, target) {
+  # Attempt the initial method to create test_data_united
+  result <- tryCatch(
+    {
+      test_data %>%
+        reduce(full_join, by = c(target$id_variable)) %>%
+        select(-target$id_variable, -target$target_variable, everything())
+    },
+    # If there's an error with the initial method, this alternative method will be used
+    error = function(e) {
+      test_data %>%
+        reduce(full_join, by = c(target$target_variable, target$id_variable)) %>%
+        select(-target$id_variable, -target$target_variable, everything())
+    }
+  )
+
+  return(result)
+}
+
 #' Create multiple models for given datasets
 #'
 #' This function iterates over combinations of predictor variables in the train data to build
-#' multiple models. It also provides the option to validate models using permutations.
+#' multiple models.
 #'
 #' @details
 #' When you dive into using the \emph{create_multiple_models()} function, you're not just making one model — you're orchestrating a symphony of models,
 #' each one trying its best to shed light on your data. Among these models, however, not all are equal. Some might not capture
 #' the patterns in your data well, and this is where the trim_models, trim_metric, and trim_threshold parameters can be handy.
 #'
-#'\itemize{
+#' \itemize{
 #'   \item \strong{trim_models}: This parameter acts as a switch or flag.
 #' If set to TRUE, the function will employ the mechanism to remove or "trim" models based on the specified metric and threshold (detailed below). If set to FALSE, all models will be kept, regardless of their performance.
 #'  \item \strong{trim_metric}: This specifies the metric used to evaluate model performance.
@@ -40,20 +60,18 @@ stopIfConditionFails <- function(condition, message) {
 #' \item \strong{trim_threshold}: This is the critical value, based on which models will be evaluated for potential trimming.
 #' If the performance metric of a model (as specified by trim_metric) is below this threshold, and trim_models is set to TRUE, that model will be removed or "trimmed."
 #' The default value provided is 0.3. So, for instance, with default settings, any model with a "train_mcc" less than 0.3 would be removed.
-#'}
+#' }
 #' After constructing "n"-variables models for each variable combination, the function checks if the metric (e.g., "train_mcc") for the component of this model in the "n-1"-variable run is
 #' below the specified threshold. If it is and if trim_models is TRUE, those underperforming models are removed. This ensures that subsequent
 #' combinations of variables don't waste time considering models that are deemed unsatisfactory based on prior results.
 #'
 #' @param experiment_name A character string denoting the name of the experiment.
-#' @param train_data A data frame containing the training data.
-#' @param test_data A data frame containing the testing data.
-#' @param target A list with two elements: 'target_variable' (name of the dependent variable) and 'id_variable' (name of the identifier variable).
+#' @param train_data A list containing the training data.
+#' @param test_data A list containing the testing data.
+#' @param target A list with at least two elements: 'target_variable' (name of the dependent variable) and 'id_variable' (name of the identifier variable); see more under \link[playOmics]{define_target}.
 #' @param n_max An integer specifying the maximum number of predictor variables to consider in combinations. Default is 3.
 #' @param n_cores An integer specifying the number of CPU cores to use in parallel processing. Default is one fourth of the available cores.
 #' @param directory A character string specifying the path to the working directory. Default is the current working directory.
-#' @param validate_with_permutation A logical indicating whether to validate models using permutations. Default is FALSE.
-#' @param n_perm An integer specifying the number of permutations to be used if 'validate_with_permutation' is TRUE.
 #' @param trim_models A logical indicating whether to trim models based on a given metric and threshold. Default is TRUE.
 #' @param trim_metric A character string specifying the metric to use for trimming models. Default is 'train_mcc'.
 #' @param trim_threshold A numeric value specifying the threshold below which models should be trimmed. Default is 0.3.
@@ -70,26 +88,24 @@ stopIfConditionFails <- function(condition, message) {
 #' # Assuming appropriate data is available
 #' # results <-
 #' create_multiple_models(
-#'        experiment_name = my_experiment_name,
-#'        train_data = train_data_prepared,
-#'        test_data = test_data_prepared,
-#'        target = my_target,
-#'        n_max = 3,
-#'        validate_with_permutation = FALSE,
-#'        n_perm = NULL,
-#'        trim_models = TRUE,
-#'        trim_metric = "train_mcc",
-#'        trim_threshold = 0.3,
-#'        # single model settings
-#'        validation_method = "cv",
-#'        n_prop = NULL,
-#'        n_repeats = 5,
-#'        log_experiment = TRUE,
-#'        explain = TRUE,
-#'        # configuration
-#'        n_cores = 5,
-#'       directory = here::here()
-#'       )
+#'   experiment_name = my_experiment_name,
+#'   train_data = train_data_prepared,
+#'   test_data = test_data_prepared,
+#'   target = my_target,
+#'   n_max = 3,
+#'   trim_models = TRUE,
+#'   trim_metric = "train_mcc",
+#'   trim_threshold = 0.3,
+#'   # single model settings
+#'   validation_method = "cv",
+#'   n_prop = NULL,
+#'   n_repeats = 5,
+#'   log_experiment = TRUE,
+#'   explain = TRUE,
+#'   # configuration
+#'   n_cores = 5,
+#'   directory = here::here()
+#' )
 #'
 #' @export
 
@@ -99,21 +115,18 @@ create_multiple_models <- function(experiment_name,
                                    test_data,
                                    target,
                                    n_max = 3,
-                                   validate_with_permutation = FALSE,
-                                   n_perm = NULL,
                                    trim_models = TRUE,
                                    trim_metric = "train_mcc",
                                    trim_threshold = 0.3,
                                    # single model settings
-                                   validation_method = "subsampling",
+                                   validation_method = "cv",
                                    n_prop = 2 / 3,
-                                   n_repeats = 10,
+                                   n_repeats = 5,
                                    log_experiment = TRUE,
                                    explain = TRUE,
                                    # configuration
                                    n_cores = parallel::detectCores() / 4,
                                    directory = getwd()) {
-
   # Set the directory
   directory <- file.path(directory, experiment_name)
 
@@ -132,10 +145,7 @@ create_multiple_models <- function(experiment_name,
     select(-target$id_variable, -target$target_variable, everything())
 
   # prepare test data
-  test_data_united <-
-    test_data %>%
-    reduce(full_join, by = c(target$id_variable)) %>%
-    select(-target$id_variable, -target$target_variable, everything())
+  test_data_united <- prepare_test_data(test_data, target)
 
   # Ensure n_max is at least 2
   stopIfConditionFails(n_max >= 2, "n_max can't be lower than 2. Please introduce higher number!")
@@ -149,16 +159,28 @@ create_multiple_models <- function(experiment_name,
 
   names(chunks) <- paste0(2:n_max, "-vars models")
 
-  last_run <- Sys.Date()
+  experiment_timestamp <- Sys.Date()
 
-  # Save data
-  save(train_data, test_data, train_data_united, test_data_united, last_run, chunks, file = paste(directory, "data.RData", sep = "/"))
+  # Save train_data
+  save(train_data, file = paste(directory, "train_data.RData", sep = "/"))
+
+  # Save test_data
+  save(test_data, file = paste(directory, "test_data.RData", sep = "/"))
+
+  # Save train_data_united
+  save(train_data_united, file = paste(directory, "train_data_united.RData", sep = "/"))
+
+  # Save test_data_united
+  save(test_data_united, file = paste(directory, "test_data_united.RData", sep = "/"))
+
+  # Save experiment_timestamp
+  save(experiment_timestamp, file = paste(directory, "experiment_timestamp.RData", sep = "/"))
+
+  # Save chunks
+  save(chunks, file = paste(directory, "chunks.RData", sep = "/"))
 
   # Log the start of the experiment
   logger::log_info("Starting modelling experiment")
-
-  # Check if validate_with_permutation is selected, and if so, ensure number of permutations is set
-  stopIfConditionFails(!validate_with_permutation || !is.null(n_perm), "Option validate with permutation selected, but number of permutations is zero. Please set number of permutations.")
 
   # Process each chunk
   results <-
@@ -167,12 +189,19 @@ create_multiple_models <- function(experiment_name,
       n <- n + 1
       logger::log_info(sprintf("There are %d %s to be constructed", length(chunks[[chunk_list]]), chunk_list))
 
-      cl <- autoStopCluster(parallel::makeCluster(n_cores, type = "PSOCK"))
-      parallel::clusterExport(cl = cl, varlist = c("train_data_united", "test_data_united", "target", "directory", "create_model"), envir = environment())
-      parallel::clusterEvalQ(cl, {
-        library(tidyverse)
-        # library(playOmics)
-      })
+      # Determine the type of cluster based on the operating system
+      cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
+
+      # Create a cluster with the appropriate type
+      cl <- autoStopCluster(parallel::makeCluster(n_cores, type = cluster_type))
+
+      if (cluster_type == "PSOCK") {
+        parallel::clusterExport(cl = cl, varlist = c("train_data_united", "test_data_united", "target", "directory", "create_model"), envir = environment())
+        parallel::clusterEvalQ(cl, {
+          library(tidyverse)
+          # library(playOmics)
+        })
+      }
 
       models <-
         chunks[[chunk_list]] %>%
@@ -190,44 +219,15 @@ create_multiple_models <- function(experiment_name,
 
           model_result <-
             create_model(train_data,
-                         test_data,
-                         target,
-                         log_experiment = log_experiment,
-                         explain = explain,
-                         directory = directory,
-                         validation_method = validation_method,
-                         n_prop = n_prop,
-                         n_repeats = n_repeats)
-
-          # train & test shuffled separately?
-          if (validate_with_permutation) {
-            permutation_results <-
-              lapply(1:n_perm, function(i) {
-                # Shuffle the target variable in train and test data
-                train_data_perm <- train_data %>% mutate(!!target$target_variable := sample(!!sym(target$target_variable)))
-                test_data_perm <- test_data %>% mutate(!!target$target_variable := sample(!!sym(target$target_variable)))
-                # Create a model with shuffled data
-                my_result <- test_data_perm(train_data_perm, test_data_perm, target, log_experiment = FALSE, explain = FALSE, directory = directory, validation_method = "cv", n_repeats = 3)
-                return(my_result)
-              }) %>%
-              bind_rows(.id = "permutation_no")
-
-            # Calculate p-values to evaluate the significance of the mode
-            pval <- rowSums(apply(permutation_results, 1, function(x) {
-              select(model_result, !starts_with("model")) > x[-c(1:2)]
-            }, simplify = T)) / nrow(permutation_results)
-
-            # Prepare p-values for merging with the model results
-            names(pval) <- names(model_result)
-            pval <- pval %>% rename_with(~ paste0("perm_pval_", .x))
-
-            model_result <-
-              bind_cols(
-                model_result,
-                tibble(n_perm = n_perm),
-                data.frame(t(pval))
-              )
-          }
+              test_data,
+              target,
+              log_experiment = log_experiment,
+              explain = explain,
+              directory = directory,
+              validation_method = validation_method,
+              n_prop = n_prop,
+              n_repeats = n_repeats
+            )
 
           model_result
         })

@@ -7,9 +7,11 @@ testdata <- list(
 
 # Tests for nested_filtering
 test_that("nested_filtering works as expected", {
-  target <- list(phenotype_df = "phenotype_df",
-                 id_variable = "id",
-                 target_variable = "target")
+  target <- list(
+    phenotype_df = "phenotype_df",
+    id_variable = "id",
+    target_variable = "target"
+  )
 
   # Test 1: Basic functionality
   result <- nested_filtering(testdata, target)
@@ -17,7 +19,7 @@ test_that("nested_filtering works as expected", {
   expect_true(length(result) == 2)
 
   # Test 2: Test with different filter_name
-  result2 <- nested_filtering(testdata, target, filter_name = "another_filter")
+  result2 <- nested_filtering(testdata, target, filter_name = "anova")
   expect_true(is.list(result2))
   expect_true(length(result2) == 2)
 
@@ -37,9 +39,8 @@ test_that("nested_filtering works as expected", {
   # Test 6: Test with cutoff_method not valid
   expect_error(nested_filtering(testdata, target, cutoff_method = "another_method"), "Cutoff method not found!")
 
-  # Test 7: Test with different nfold
-  result7 <- nested_filtering(testdata, target, nfold = 3)
+  # Test 7: Test with different n_fold
+  result7 <- nested_filtering(testdata, target, n_fold = 3)
   expect_true(is.list(result7))
   expect_true(length(result7) == 2)
-
 })

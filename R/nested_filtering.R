@@ -62,7 +62,7 @@ select_features <- function(data, ranking, target, cutoff_method, cutoff_treshol
 #' target dataset and a list of datasets as an input, adds target to each dataset
 #' and removes missing target values. It then performs n-times feature ranking on
 #' each fold. Nextly, ranking among all folds is created and mean metric value is used for variable selection.
-#' The top features are selected according to a specified cutoff method
+#' The top features are selected according to a specified cutoff method.
 #'
 #' It consists of two underlying functions:
 #'
@@ -87,22 +87,23 @@ select_features <- function(data, ranking, target, cutoff_method, cutoff_treshol
 #' used for selecting features; one of the following:
 #'    * "top_n",
 #'    * "percentage",
-#'    * "threshold."
+#'    * "threshold".
 #' Default is "top_n".
 #' @param cutoff_treshold Depending of a cutoff method, a number of features to be selected (for "top_n" method),
 #'percentage of variables to be selected (for "percentage" method), a threshold above which features are selected (for "percentage" method). Default is 1.
 #' @param n_threads An integer value specifying the number of threads to be
 #' used for feature ranking. Default is 1.
-#' @param nfold An integer value specifying the number of folds for
+#' @param n_fold An integer value specifying the number of folds for
 #' cross-validation. Cross-validation is used for overfitting prevention. A ranking of  Default is 5.
 #'
 #' @return A list containing the filtered datasets.
 #'
 #' @examples
-#' filtered_data <- nested_filtering(data = data_prepared, target = target, filter_name = "auc", cutoff_method = "top_n", cutoff_treshold = 10, nfold = 5 n_threads = 10)
+#' filtered_data <- nested_filtering(data = data_prepared, target = target, filter_name = "auc",
+#'     cutoff_method = "top_n", cutoff_treshold = 10, n_fold = 5 n_threads = 10)
 #' @export
 
-nested_filtering <- function(data, target, filter_name = "auc", cutoff_method = "top_n", cutoff_treshold = 10, n_threads = 1, nfold = 5) {
+nested_filtering <- function(data, target, filter_name = "auc", cutoff_method = "top_n", cutoff_treshold = 10, n_threads = 1, n_fold = 5) {
 
   # Extract target data from the input data
   target_data <-
@@ -130,15 +131,15 @@ nested_filtering <- function(data, target, filter_name = "auc", cutoff_method = 
     # Perform stratified cross-validation using vfold_cv from the rsample package
     resample <-
       rsample::vfold_cv(data[[dataframe]],
-                        v = nfold,
+                        v = n_fold,
                         strata = target$target_variable
       )
 
     # Create a list to store the training data for each fold
     training_data <-
-      lapply(1:nfold, function(i) resample$splits[[i]]$data[resample$splits[[i]]$in_id, ])
+      lapply(1:n_fold, function(i) resample$splits[[i]]$data[resample$splits[[i]]$in_id, ])
 
-    names(training_data) <- paste0("split", 1:nfold)
+    names(training_data) <- paste0("split", 1:n_fold)
 
     # Rank the features using the rank_features function
     ranked_features <-

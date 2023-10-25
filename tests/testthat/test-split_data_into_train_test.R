@@ -28,7 +28,7 @@ target_no_target <- list(
   target_variable = NULL
 )
 
-prop <- 4/5
+prop <- 4 / 5
 
 test_that("split_data_into_train_test works correctly", {
   split_result <- split_data_into_train_test(sample_data, target, prop)
@@ -59,4 +59,3 @@ test_that("split_data_into_train_test works correctly", {
   expect_equal(length(intersect(train_id, test_id)), 0)
   expect_equal(sort(union(train_id, test_id)), sort(sample_data$phenotype_df$id))
 })
-

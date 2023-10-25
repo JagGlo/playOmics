@@ -14,22 +14,21 @@
 #'
 #' @examples
 #' # Test data preparation
-#'sample_data <- list(
-#'  phenotype_df = data.frame(
-#'    id = 1:100,
-#'    target_variable = sample(c(0, 1), 100, replace = TRUE),
-#'    feature1 = rnorm(100),
-#'    feature2 = rnorm(100)
-#'  ),
-#'  another_df = data.frame(
-#'    id = 1:100,
-#'    col1 = rnorm(100),
-#'    col2 = rnorm(100)
-#'  )
-#')
+#' sample_data <- list(
+#'   phenotype_df = data.frame(
+#'     id = 1:100,
+#'     target_variable = sample(c(0, 1), 100, replace = TRUE),
+#'     feature1 = rnorm(100),
+#'     feature2 = rnorm(100)
+#'   ),
+#'   another_df = data.frame(
+#'     id = 1:100,
+#'     col1 = rnorm(100),
+#'     col2 = rnorm(100)
+#'   )
+#' )
 #'
-#'split_result <- split_data_into_train_test(sample_data, target, prop)
-
+#' split_result <- split_data_into_train_test(sample_data, target, prop)
 split_data_into_train_test <- function(data, target, prop = 4 / 5) {
   # Initialize empty lists for train and test data
   train_data <- list()
