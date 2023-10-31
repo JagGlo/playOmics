@@ -2,26 +2,30 @@
 % Please edit documentation in R/data_overview.R
 \name{check_data}
 \alias{check_data}
-\title{Check numeric}
+\title{Check data}
 \usage{
 check_data(dataset)
 }
 \arguments{
-\item{dataset}{Either a dataframe or element of a list}
+\item{dataset}{Either a dataframe or element of a list.}
 }
 \value{
-\itemize{
-  \item A - The letters of the alphabet.
-  \item B - A vector of numbers.
-}
+A list containing two dataframes: 'non_numeric_data' and 'numeric_data'.
 }
 \description{
-Basic statistics for numeric data
+This function calculates basic statistics for numeric data within a dataframe or an element
+of a list. It provides information such as the count of available and missing values, unique values,
+minimum, first quartile (Q1), mean, median, standard deviation, variance, third quartile (Q3), and maximum.
 }
 \examples{
-#For dataframe:
-check_numeric(dataset)
-#For element of a list:
-check_numeric(my_data$dataset)
+data1 <- data.frame(SampleID = c(1:5),Variable1 = c(3, 6, 2, 8, 4),
+Variable2 = c("A", "B", "A", "C", "B"),Variable3 = factor(c("X", "Y", "Z", "X", "Y")))
+data2 <- data.frame(SampleID = c(1:5), Variable1 = c(2, 4, 6, 8, 10),
+Variable2 = c("A", "B", "C", "D", "E"),Variable3 = factor(c("X", "Y", "Z", "X", "Y")))
+my_data <- list(data1 = data1, data2 = data2)
+# For dataframe:
+check_data(data1)
+# For element of a list:
+check_data(my_data$data1)
 
 }

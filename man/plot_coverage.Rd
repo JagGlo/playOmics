@@ -2,7 +2,7 @@
 % Please edit documentation in R/plot_coverage.R
 \name{plot_coverage}
 \alias{plot_coverage}
-\title{Visualize intersections between different modalities/}
+\title{Visualize intersections between different modalities}
 \usage{
 plot_coverage(data)
 }
@@ -10,12 +10,17 @@ plot_coverage(data)
 \item{data}{named list of connected dataframes. Common ID must be placed as a first column for all data.}
 }
 \value{
-plot presenting data coverage between different datasets
+plot presenting data coverage between different datasets.
 }
 \description{
-Visualize intersections between different modalities/
+This function takes a named list of connected dataframes as input, where the common ID is placed
+as the first column for all dataframes. It generates a plot that presents the data coverage
+between different datasets, showing how many common IDs (samples) are shared across each dataset.
 }
 \examples{
+data1 <- data.frame(SampleID = 1:5, Variable = c("A", "B", "C", "D", "E"))
+data2 <- data.frame(SampleID = 3:7, Variable = c("C", "D", "E", "F", "G"))
+my_data <- list(data1 = data1, data2 = data2)
 plot_coverage(my_data)
 
 }

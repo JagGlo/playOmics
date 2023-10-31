@@ -2,27 +2,34 @@
 % Please edit documentation in R/define_target.R
 \name{define_target}
 \alias{define_target}
-\title{Define your target}
+\title{Define a target for a classification problem}
 \usage{
 define_target(
-  target_variable,
-  positive_class_indication,
-  phenotype_df,
-  id_variable
+  phenotype_df_name,
+  id_variable_name,
+  target_variable_name,
+  positive_class_name = NULL
 )
 }
 \arguments{
-\item{target_variable}{Name of a column with statuses}
+\item{phenotype_df_name}{Name of a dataframe containing the phenotype/clinical data.}
 
-\item{positive_class_indication}{Name of a class within target variable that should be treated as success (positive outcome)}
+\item{id_variable_name}{Name of the ID variable in the phenotype data frame.}
 
-\item{phenotype_df}{Name of a dataframe name containing the phenotype/clinical data}
+\item{target_variable_name}{Name of the target variable in the phenotype data frame.}
 
-\item{id_variable}{Name of a column with subjects/samples IDs}
+\item{positive_class_name}{Name of the positive class indication in the target variable.}
 }
 \value{
-An object containing the most important information about defined target
+A list containing the most important information about defined target
 }
 \description{
-Define your target
+Given the names of the input data frame, id variable, target variable,
+and positive class variable, this function creates a list containing
+these objects for use in a classification task.
+}
+\examples{
+my_target <- define_target(phenotype_df_name = "clinical_data", id_variable_name = "patient_id",
+    target_variable_name = "survived", positive_class_name = "1")
+
 }

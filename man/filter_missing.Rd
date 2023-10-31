@@ -2,14 +2,30 @@
 % Please edit documentation in R/prefiltering.R
 \name{filter_missing}
 \alias{filter_missing}
-\title{Filter missing values}
+\title{Filter missing values based on a percentage threshold}
 \usage{
-filter_missing(data, pcent_of_samples, inside_group = NULL)
+filter_missing(data, pcent_of_samples)
 }
 \arguments{
-\item{pcent_of_samples}{indicates % of values within variable which should contain
-non-missing values in all samples}
+\item{data}{A dataset containing values to be filtered.}
+
+\item{pcent_of_samples}{The percentage of non-missing values within a variable
+that should be present in all samples.}
+}
+\value{
+A filtered dataset.
 }
 \description{
-Filter missing values
+This function filters out rows with missing values in a dataset. The percentage
+of non-missing values within a variable that should be present in all samples
+is specified by the \code{pcent_of_samples} parameter.
+}
+\examples{
+# Filter rows with missing values
+my_data <- data.frame(SampleID = c(1:10),
+  Variable1 = c(3, 6, 2, 8, 4, 1, 9, 7, 5, 10),
+  Variable2 = c(NA, 2, 5, 1, NA, 7, 3, 6, 8, NA)
+  )
+filtered_data <- filter_missing(my_data, 0.8)
+
 }

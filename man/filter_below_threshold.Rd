@@ -2,23 +2,32 @@
 % Please edit documentation in R/prefiltering.R
 \name{filter_below_threshold}
 \alias{filter_below_threshold}
-\title{Filter values below defined threshold}
+\title{Filter values below a defined threshold}
 \usage{
-filter_below_threshold(
-  data,
-  numeric_threshold,
-  pcent_of_samples,
-  inside_group = NULL,
-  group_by = NULL
-)
+filter_below_threshold(data, numeric_threshold, pcent_of_samples)
 }
 \arguments{
-\item{numeric_threshold}{value below which data should be filtered out}
+\item{data}{A dataset containing numeric values to be filtered.}
 
-\item{pcent_of_samples}{indicates % of values within variable which should contain
-a value higher than the one defined in the numeric_variable parameter; n total is calculated based
-on all samples (no distinction between missing and non-missing values)}
+\item{numeric_threshold}{The numeric threshold below which data should be filtered out.}
+
+\item{pcent_of_samples}{The percentage of values within a variable that should
+contain values higher than the numeric threshold.}
+}
+\value{
+A filtered dataset.
 }
 \description{
-Filter values below defined threshold
+This function filters out columns with percentage of values below a specified numeric threshold
+in a dataset. The percentage of samples within a variable containing values
+higher than the threshold is calculated based on non-missing values.
+}
+\examples{
+# Filter values below a threshold
+my_data <- data.frame(SampleID = c(1:10),
+  Variable1 = c(3, 6, 2, 8, 4, 1, 9, 7, 5, 10),
+  Variable2 = c(NA, 2, 5, 1, NA, 7, 3, 6, 8, NA)
+  )
+filtered_data <- filter_below_threshold(my_data, 5, 0.8)
+
 }

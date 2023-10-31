@@ -2,22 +2,29 @@
 % Please edit documentation in R/connect_datasets.R
 \name{connect_datasets}
 \alias{connect_datasets}
-\title{Connect datasets}
+\title{Combine multiple datasets into a list}
 \usage{
 connect_datasets(..., remove_original_data = TRUE)
 }
 \arguments{
-\item{...}{names of datasets that should be concatenated}
+\item{...}{names of datasets to be concatenated. Common ID must be placed as a first column for all data.}
 
-\item{remove_original_data}{If set to TRUE [default], it will remove all dataframes passed as arguments.}
+\item{remove_original_data}{A logical value indicating whether or not to
+remove the original datasets from the global environment. Default is TRUE.}
 }
 \value{
-Named list; dataset names are further used as a list's elements names. Common ID must be placed as a first column for all data.
+A list containing the combined datasets.
 }
 \description{
-Connect datasets
+This function takes in multiple datasets and combines them into a list. By
+default, the original datasets are removed from the global environment.
 }
 \examples{
-my_data <-connect_datasets(clinical_data, eeg_data, proteomics_data, miRNA_data, RNA_data)
+# create two sample datasets
+df1 <- data.frame(a = 1:5, b = 6:10)
+df2 <- data.frame(a = 11:15, b = 16:20)
+
+# combine the datasets into a list
+combined <- connect_datasets(df1, df2)
 
 }
