@@ -17,8 +17,10 @@
 #' @examples
 #' \dontrun{
 #' data <- list(
-#'   phenotype_df = data.frame(id = 1:100, target = sample(c(0, 1), 100, replace = TRUE), feature1 = rnorm(100)),
-#'   another_df = data.frame(id = 1:100, col1 = rnorm(100), col2 = factor(sample(letters[1:3], 100, replace = TRUE)))
+#'   phenotype_df = data.frame(id = 1:100, target = sample(c(0, 1), 100, replace = TRUE),
+#'       feature1 = rnorm(100)),
+#'   another_df = data.frame(id = 1:100, col1 = rnorm(100),
+#'       col2 = factor(sample(letters[1:3], 100, replace = TRUE)))
 #' )
 #'
 #' target <- list(

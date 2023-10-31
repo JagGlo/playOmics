@@ -99,8 +99,11 @@ select_features <- function(data, ranking, target, cutoff_method, cutoff_treshol
 #' @return A list containing the filtered datasets.
 #'
 #' @examples
+#' \dontrun{
 #' filtered_data <- nested_filtering(data = data_prepared, target = target, filter_name = "auc",
-#'     cutoff_method = "top_n", cutoff_treshold = 10, n_fold = 5 n_threads = 10)
+#'     cutoff_method = "top_n", cutoff_treshold = 10, n_fold = 5, n_threads = 10)
+#'     }
+#'
 #' @export
 
 nested_filtering <- function(data, target, filter_name = "auc", cutoff_method = "top_n", cutoff_treshold = 10, n_threads = 1, n_fold = 5) {

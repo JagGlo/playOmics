@@ -27,8 +27,12 @@
 #'     col2 = rnorm(100)
 #'   )
 #' )
-#'
-#' split_result <- split_data_into_train_test(sample_data, target, prop)
+#' target <- list(
+#'   phenotype_df = "phenotype_df",
+#'   id_variable = "id",
+#'   target_variable = "target_variable"
+#' )
+#' split_result <- split_data_into_train_test(sample_data, target, prop = 4/5)
 split_data_into_train_test <- function(data, target, prop = 4 / 5) {
   # Initialize empty lists for train and test data
   train_data <- list()

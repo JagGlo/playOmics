@@ -8,6 +8,11 @@
 #' number of samples, number of variables, number of numeric/character/factor columns across dataset.
 #'
 #' @examples
+#' data1 <- data.frame(SampleID = c(1:5),Variable1 = c(3, 6, 2, 8, 4),
+#' Variable2 = c("A", "B", "A", "C", "B"),Variable3 = factor(c("X", "Y", "Z", "X", "Y")))
+#' data2 <- data.frame(SampleID = c(1:5), Variable1 = c(2, 4, 6, 8, 10),
+#' Variable2 = c("A", "B", "C", "D", "E"),Variable3 = factor(c("X", "Y", "Z", "X", "Y")))
+#' my_data <- list(data1 = data1, data2 = data2)
 #' data_summary(my_data)
 #'
 #' @export
@@ -96,10 +101,12 @@ check_data <- function(dataset) {
 #'
 #'
 #' @examples
+#' \dontrun{
 #' # For a dataframe:
 #' plot_stats(my_data, "median")
 #' # For an element of a list:
 #' plot_stats(my_data$dataset, "mean")
+#'}
 #'
 #' @export
 

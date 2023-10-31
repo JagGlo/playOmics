@@ -147,19 +147,6 @@ create_model <- function(
           )
         }
 
-        # logger::log_eval(
-        # model_res <-
-        #   model_wflow %>%
-        #   tune::fit_resamples(
-        #     resamples = resample,
-        #     metrics = custom_metrics,
-        #     control = tune::control_resamples(
-        #       save_pred = TRUE, allow_par = F
-        #     )
-        #   ),
-        # multiline = TRUE, level = logger::WARN
-        # )
-
         train_results <-
           model_res %>%
           tune::collect_metrics(summarize = T) %>%

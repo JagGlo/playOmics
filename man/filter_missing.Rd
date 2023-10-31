@@ -22,8 +22,7 @@ is specified by the \code{pcent_of_samples} parameter.
 }
 \examples{
 # Filter rows with missing values
-#' my_data <- data.frame(
-  SampleID = 1:10,
+my_data <- data.frame(SampleID = c(1:10),
   Variable1 = c(3, 6, 2, 8, 4, 1, 9, 7, 5, 10),
   Variable2 = c(NA, 2, 5, 1, NA, 7, 3, 6, 8, NA)
   )

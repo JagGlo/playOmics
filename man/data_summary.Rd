@@ -17,6 +17,11 @@ number of samples, number of variables, number of numeric/character/factor colum
 Check the data structure for each element of list separately
 }
 \examples{
+data1 <- data.frame(SampleID = c(1:5),Variable1 = c(3, 6, 2, 8, 4),
+Variable2 = c("A", "B", "A", "C", "B"),Variable3 = factor(c("X", "Y", "Z", "X", "Y")))
+data2 <- data.frame(SampleID = c(1:5), Variable1 = c(2, 4, 6, 8, 10),
+Variable2 = c("A", "B", "C", "D", "E"),Variable3 = factor(c("X", "Y", "Z", "X", "Y")))
+my_data <- list(data1 = data1, data2 = data2)
 data_summary(my_data)
 
 }

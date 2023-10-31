@@ -86,9 +86,10 @@ prepare_test_data <- function(test_data, target) {
 #'
 #' @examples
 #' # Assuming appropriate data is available
+#' \dontrun{
 #' # results <-
 #' create_multiple_models(
-#'   experiment_name = my_experiment_name,
+#'   experiment_name = "my_experiment_name",
 #'   train_data = train_data_prepared,
 #'   test_data = test_data_prepared,
 #'   target = my_target,
@@ -104,9 +105,9 @@ prepare_test_data <- function(test_data, target) {
 #'   explain = TRUE,
 #'   # configuration
 #'   n_cores = 5,
-#'   directory = here::here()
+#'   directory = getwd()
 #' )
-#'
+#'}
 #' @export
 
 

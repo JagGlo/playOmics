@@ -18,9 +18,11 @@ A boxplot and a table summarizing statistics for the specified metric.
 This function generates boxplots to visualize basic statistics for numeric data within a dataframe
 }
 \examples{
+\dontrun{
 # For a dataframe:
 plot_stats(my_data, "median")
 # For an element of a list:
 plot_stats(my_data$dataset, "mean")
+}
 
 }

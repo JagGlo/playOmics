@@ -18,7 +18,9 @@ A data frame containing the combined experiment metrics.
 This function reads and combines metrics data from RDS files stored in a specified directory.
 }
 \examples{
+\dontrun{
 # Read experiment metrics from the "my_experiment" directory
 metrics_data <- read_model_data("my_experiment")
+}
 
 }

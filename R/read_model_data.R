@@ -8,8 +8,10 @@
 #' @return A data frame containing the combined experiment metrics.
 #'
 #' @examples
+#' \dontrun{
 #' # Read experiment metrics from the "my_experiment" directory
 #' metrics_data <- read_model_data("my_experiment")
+#'}
 #'
 #' @export
 

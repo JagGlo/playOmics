@@ -65,6 +65,9 @@ cutoff method and threshold. The selected features are then used to create a fil
 includes the target variable and the selected features. The resulting filtered dataset is returned.
 }
 \examples{
+\dontrun{
 filtered_data <- nested_filtering(data = data_prepared, target = target, filter_name = "auc",
-    cutoff_method = "top_n", cutoff_treshold = 10, n_fold = 5 n_threads = 10)
+    cutoff_method = "top_n", cutoff_treshold = 10, n_fold = 5, n_threads = 10)
+    }
+
 }
