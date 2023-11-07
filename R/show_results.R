@@ -1,5 +1,3 @@
-library(shiny)
-
 results_GUI <- function(results, target) {
   ui <- fluidPage(
     column(uiOutput("choose_metrics"), width = 3),
@@ -23,8 +21,7 @@ results_GUI <- function(results, target) {
         DT::dataTableOutput("present_data"),
         plotly::plotlyOutput("3dplot"),
         DT::dataTableOutput("variable_stats"),
-        permutationUI("permutations"),
-        plotOutput("variable_stats_plots")
+        permutationUI("permutations")
       ),
       tabPanel(
         "Prediction",
@@ -271,7 +268,7 @@ results_GUI <- function(results, target) {
       link_to_model <- results$model_dir[selectedRow]
       values$model_link <<- link_to_model
 
-      predictionServer("new_data", results, values)
+      predictionServer("new_data", results, values, target)
     })
   }
 

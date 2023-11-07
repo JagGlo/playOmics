@@ -22,6 +22,7 @@ VignetteBuilder: knitr
 Depends: 
     tidyverse,
     knitr,
+    shiny,
     R (>= 2.10)
 Imports: 
     carrier,
@@ -33,7 +34,7 @@ Imports:
     ggupset,
     logger,
     mlr3,
-    mlr3filters (<= 0.6.0),
+    mlr3filters (== 0.6.0),
     parallel,
     parsnip,
     recipes,
@@ -45,7 +46,9 @@ Imports:
     tune,
     workflows,
     yardstick,
-    shiny,
+    shinyjs,
+    shinyWidgets,
+    shinydashboardPlus,
     DT,
     plotly
 Config/testthat/edition: 3

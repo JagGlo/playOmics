@@ -40,14 +40,18 @@ prepare_data_for_modelling <- function(data, target) {
 
       df <- data[[dataframe]]
 
-      non_numeric_vars <- setdiff(names(df %>% select(which(sapply(., class) != "numeric"))), c(target$id_variable, target$target_variable))
+      not_unique <- function(x) {
+        x <- x[!is.na(x)]
+        length(unique(x)) >= 2
+      }
+      non_numeric_vars <- setdiff(names(df %>% select(intersect(which(sapply(., class) != "numeric"), which(sapply(., not_unique))))), c(target$id_variable, target$target_variable))
       # If there are any non-numeric columns, perform one-hot encoding
       if (length(non_numeric_vars) > 0) {
         df <-
           df %>%
           # Set up a recipe for one-hot encoding
           recipes::recipe(~.) %>%
-          recipes::step_dummy(all_of(non_numeric_vars), one_hot = T) %>%
+          recipes::step_dummy(all_of(non_numeric_vars)) %>%
           recipes::prep() %>%
           # Apply the recipe to the data
           recipes::bake(df) %>%
@@ -73,7 +77,16 @@ prepare_data_for_modelling <- function(data, target) {
 
       # Add dataset name for each variable to distinct data
       col_names <- c(target$id_variable, setdiff(names(df), target$id_variable))
-      col_names <- ifelse(col_names == target$target_variable | col_names == target$id_variable, col_names, paste0(col_names, " [", dataframe, "]"))
+      col_names <- sapply(col_names, function(x){
+        # if target_variable is not null and x is not target_variable, return x
+        if(!is.null(target$target_variable))
+           if(x == target$target_variable) return(x)
+        if(!is.null(target$id_variable))
+          if(x == target$id_variable) return(x)
+
+          paste0(x, " [", dataframe, "]")
+
+               })
       setNames(df, col_names)
     }, simplify = FALSE, USE.NAMES = TRUE)
 }

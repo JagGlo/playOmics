@@ -50,7 +50,7 @@ plottingServer <- function(id, df) {
             max = max(value, na.rm = T)
           ) %>%
           mutate_all(round, 3) %>%
-          datatable(
+          DT::datatable(
             rownames = FALSE,
             options = list(searching = FALSE, paging = FALSE),
             escape = FALSE,

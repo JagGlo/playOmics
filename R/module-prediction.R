@@ -6,20 +6,21 @@ predictionUI <- function(id) {
       fluidPage(
         shiny::radioButtons(ns("select_input"),
           label = "Select data for prediction",
-          choices = c("Insert values", "Select data from your env", "Load data from file"),
+          choices = c("Insert values", "Select data from your env"),
           selected = "Insert values"
         ),
         uiOutput(ns("predict_dashboard")),
         htmlOutput(ns("this_is_prediction")),
         DT::dataTableOutput(ns("show_prediction")),
         htmlOutput(ns("this_is_explanation")),
+        uiOutput(ns("choose_ID_to_explain")),
         plotOutput(ns("explain"))
       )
     )
   )
 }
 
-predictionServer <- function(id, df, values) {
+predictionServer <- function(id, df, values, target) {
   moduleServer(id, function(input, output, session) {
     output$predict_dashboard <- renderUI({
       tagList(
@@ -43,6 +44,13 @@ predictionServer <- function(id, df, values) {
     })
 
     observeEvent(input$predict, {
+
+      names <- na.omit(results$model_name[results$model_dir == values$model_link])
+      vars <-
+        names %>%
+        strsplit(split = "\\s\\+\\s") %>%
+        unlist()
+
       if (input$select_input == "Insert values") {
         # Extract list of data frames from reactiveValues
         list_of_inputs <- reactiveValuesToList(input)
@@ -53,28 +61,34 @@ predictionServer <- function(id, df, values) {
         # If you need to bind them together into one data frame (assuming they have the same structure):
         new_data <- bind_rows(filtered_list) %>% select(order(colnames(.)))
 
-        names <- na.omit(results$model_name[results$model_dir == values$model_link])
-        vars <-
-          names %>%
-          strsplit(split = "\\s\\+\\s") %>%
-          unlist()
         colnames(new_data) <- vars
       } else if (input$select_input == "Select data from your env") {
         data_from_env <- get(input$env_dataframe, envir = .GlobalEnv)
         new_data <-
           if (!is.data.frame(data_from_env)) {
-            prepare_data_for_modelling(data_from_env)
+            tryCatch(
+              {
+                data_from_env %>%
+                reduce(full_join, by = target$id_variable) %>%
+                select(target$id_variable, vars)
+              },
+              error = function(e) {
+                print(e)
+              }
+            )
+
           } else {
             data_from_env
           }
       }
+
       values$prediction_data <- new_data
     })
 
     output$show_prediction <- DT::renderDT({
       req(!is.null(values$prediction_data))
       predicted <- load_and_predict(values$model_link, values$prediction_data)
-      values$prediction_result <- predicted
+      values$prediction_result <- bind_cols(values$prediction_data[,1],predicted)
       values$prediction_result %>%
         mutate_if(is.numeric, round, 3) %>%
         DT::datatable(
@@ -93,9 +107,32 @@ predictionServer <- function(id, df, values) {
       h3("Explanation with SHAP values:")
     })
 
+    #if nrow(values$prediction_data) > 1, select one row for explanation with selector
+    output$choose_ID_to_explain <- renderUI({
+      req(!is.null(values$prediction_data))
+      if (nrow(values$prediction_result) > 1) {
+        selectInput(
+          session$ns("explanation_id"),
+          "Select ID to explain:",
+          choices = na.omit(values$prediction_data)[[target$id_variable]],
+          selected = na.omit(values$prediction_data)[[target$id_variable]][1]
+        )
+      }
+    })
+
     output$explain <- renderPlot({
       req(!is.null(values$prediction_result))
-      explained <- load_and_explain(values$model_link, values$prediction_data)
+      req(input$explanation_id)
+
+      if (nrow(values$prediction_result) > 1) {
+        data_to_predict <-
+          values$prediction_data[values$prediction_data[[target$id_variable]] == input$explanation_id, ] %>%
+          select(-target$id_variable)
+      } else {
+        data_to_predict <- values$prediction_data
+      }
+
+      explained <- load_and_explain(values$model_link, data_to_predict)
 
       explained %>%
         group_by(variable) %>%

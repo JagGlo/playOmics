@@ -55,8 +55,8 @@ permutationServer <- function(id, link_to_folder, target) {
               log_experiment = FALSE,
               explain = FALSE,
               validation_method = params$validation_method,
-              n_prop = params$prop,
-              n_repeats = params$times
+              n_prop = params$n_prop,
+              n_repeats = params$n_repeats
             )
 
           model_result
@@ -119,8 +119,8 @@ permutationServer <- function(id, link_to_folder, target) {
 
     output$detailed_results_tab <- DT::renderDataTable({
       req(!is.null(perm_results()))
+      req(!is.null(pvalues()))
       perm_results() %>%
-        mutate_all(round, 3) %>%
         DT::datatable(
           rownames = FALSE,
           options = list(searching = FALSE, paging = FALSE),
