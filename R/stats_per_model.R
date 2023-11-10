@@ -36,10 +36,16 @@ count_stats_per_model <- function(data, target) {
     data %>%
     mutate_at(fct_names, as.factor)
 
+  summary <-
   data %>%
     group_by(!!rlang::sym(target$target_variable)) %>%
-    summarise(n = n()) %>%
-    left_join(
+    summarise(n = n())
+
+  non_numeric_vars <- setdiff(names(data %>% select(which(sapply(., class) != "numeric"))), c(target$id_variable, target$target_variable))
+  numeric_vars <- setdiff(names(data %>% select(which(sapply(., class) == "numeric"))), c(target$id_variable, target$target_variable))
+
+  if(length(numeric_vars) > 0){
+    numeric_data <-
       data %>%
         group_by(!!rlang::sym(target$target_variable)) %>%
         summarise(across(
@@ -56,10 +62,13 @@ count_stats_per_model <- function(data, target) {
         spread(what, value) %>%
         mutate(numbers = paste0(median, " (", Q1, "-", Q3, ")")) %>%
         select(-median, -Q1, -Q3) %>%
-        spread(key, numbers),
-      by = target$target_variable
-    ) %>%
-    left_join(
+        spread(key, numbers)
+  } else {
+    numeric_data <- NULL
+  }
+
+    if(length(non_numeric_vars) > 0){
+    non_numeric_data <-
       data %>%
         select(where(is.factor)) %>%
         pivot_longer(!(!!rlang::sym(target$target_variable)), names_to = "variable", values_to = "value") %>%
@@ -80,7 +89,15 @@ count_stats_per_model <- function(data, target) {
         summarise(stats = paste(numbers, collapse = " | ")) %>%
         ungroup() %>%
         pivot_wider(names_from = variable, values_from = stats)
-    ) %>%
+    } else {
+      non_numeric_data <- NULL
+    }
+
+  bind_rows(numeric_data, non_numeric_data, summary) %>%
+    mutate_if(is.numeric, as.character) %>%
+    pivot_longer(!(!!rlang::sym(target$target_variable)), names_to = "variable", values_to = "value") %>%
+    filter(!is.na(value)) %>%
+    pivot_wider(names_from = variable, values_from = value) %>%
     mutate(!!rlang::sym(target$target_variable) := paste0(!!rlang::sym(target$target_variable), "\n(n=", n, ")")) %>%
     select(-n) %>%
     gather(variable, value, -!!rlang::sym(target$target_variable)) %>%

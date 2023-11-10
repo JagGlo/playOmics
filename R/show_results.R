@@ -88,14 +88,6 @@ results_GUI <- function(results, target) {
 
       plottingServer(id, results %>% select(-c(model_name, model_id, model_dir)))
 
-      observeEvent(input[[paste0(id, "-box")]][["visible"]], {
-        if (input[[paste0(id, "-box")]][["visible"]] == FALSE) {
-          removeUI(selector = paste0("#", id))
-          list_modules[[id]] <<- NULL
-          remove_shiny_inputs(paste0(id, "-box"), input)
-        }
-      })
-
       current_id <<- current_id + 1
     })
 

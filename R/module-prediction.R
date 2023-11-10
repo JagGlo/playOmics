@@ -11,6 +11,7 @@ predictionUI <- function(id) {
         ),
         uiOutput(ns("predict_dashboard")),
         htmlOutput(ns("this_is_prediction")),
+        uiOutput(ns("error_message")),
         DT::dataTableOutput(ns("show_prediction")),
         htmlOutput(ns("this_is_explanation")),
         uiOutput(ns("choose_ID_to_explain")),
@@ -22,6 +23,10 @@ predictionUI <- function(id) {
 
 predictionServer <- function(id, df, values, target) {
   moduleServer(id, function(input, output, session) {
+
+    # A reactive value to store error messages
+    error_message <- reactiveVal(NULL)
+
     output$predict_dashboard <- renderUI({
       tagList(
         fluidPage(
@@ -73,7 +78,14 @@ predictionServer <- function(id, df, values, target) {
                 select(target$id_variable, vars)
               },
               error = function(e) {
-                print(e)
+                # Update the reactive value with the error message
+                # check if "vars" exist in the data_from_env
+                if(!all(vars %in% names(data_from_env))){
+                  error_message("The selected dataframe or list does not contain the required variables.")
+                } else {
+                  error_message(e)
+                }
+                NULL
               }
             )
 
@@ -102,6 +114,13 @@ predictionServer <- function(id, df, values, target) {
       h3("Prediction result(s):")
     })
 
+    # Render the error message if there is one
+    output$error_message <- renderUI({
+      if (!is.null(error_message())) {
+        shiny::tags$div(style = "color: red;", error_message())
+      }
+    })
+
     output$this_is_explanation <- renderUI({
       req(!is.null(values$prediction_result))
       h3("Explanation with SHAP values:")
@@ -117,14 +136,15 @@ predictionServer <- function(id, df, values, target) {
           choices = na.omit(values$prediction_data)[[target$id_variable]],
           selected = na.omit(values$prediction_data)[[target$id_variable]][1]
         )
-      }
+      } else NULL
     })
 
     output$explain <- renderPlot({
       req(!is.null(values$prediction_result))
-      req(input$explanation_id)
+      req(is.null(error_message()))
 
       if (nrow(values$prediction_result) > 1) {
+        req(input$explanation_id)
         data_to_predict <-
           values$prediction_data[values$prediction_data[[target$id_variable]] == input$explanation_id, ] %>%
           select(-target$id_variable)
