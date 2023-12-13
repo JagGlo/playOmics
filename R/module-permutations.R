@@ -9,8 +9,16 @@ permutationUI <- function(id, data) {
           ns("no_of_permutations"),
           "Number of permutations:",
           value = 100,
-          min = 1,
+          min = 10,
           max = 1000,
+          step = 10
+        ),
+        numericInput(
+          ns("no_of_cores"),
+          "Number of cores:",
+          value = parallel::detectCores() / 4,
+          min = 1,
+          max = parallel::detectCores(),
           step = 1
         ),
         actionButton(ns("permute"), "Permute"),
@@ -34,6 +42,7 @@ permutationServer <- function(id, link_to_folder, target) {
       req(input$permute)
 
       no_of_perm <- as.numeric(input$no_of_permutations)
+      n_cores <- as.numeric(input$no_of_cores)
       train_data <- readRDS(paste(link_to_folder, "train_data.Rds", sep = "/"))
       test_data <- readRDS(paste(link_to_folder, "test_data.Rds", sep = "/"))
       data <- bind_rows(train_data, test_data)
@@ -41,8 +50,23 @@ permutationServer <- function(id, link_to_folder, target) {
       params_path <- paste(link_to_folder, "params.json", sep = "/")
       params <- jsonlite::fromJSON(params_path, simplifyVector = FALSE)
 
+      # Determine the type of cluster based on the operating system
+      cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
+
+      # Create a cluster with the appropriate type
+      cl <- parallel::makeCluster(n_cores, type = cluster_type)
+
+      if (cluster_type == "PSOCK") {
+        parallel::clusterExport(cl = cl, varlist = c("data", "target", "params", "create_model"), envir = environment())
+        parallel::clusterEvalQ(cl, {
+          library(tidyverse)
+          # library(playOmics)
+        })
+      }
+
       permutation_results <-
-        lapply(1:no_of_perm, function(i) {
+        # lapply(1:no_of_perm, function(i) {
+          parallel::parLapply(cl, 1:no_of_perm, function(i) {
           # Shuffle the target variable in train and test data
           data_perm <- data %>% mutate(!!target$target_variable := sample(!!sym(target$target_variable)))
           data_splitted <- rsample::initial_split(data_perm, prop = 0.8, strata = target$target_variable)
@@ -59,9 +83,13 @@ permutationServer <- function(id, link_to_folder, target) {
               n_repeats = params$n_repeats
             )
 
-          model_result
+          model_result %>% select(-starts_with("model_"))
         }) %>%
         bind_rows(.id = "permutation_no")
+
+      parallel::stopCluster(cl)
+
+    permutation_results
     })
 
     original_model_result <- reactive(jsonlite::fromJSON(paste(link_to_folder, "metrics.json", sep = "/"), simplifyVector = T) %>% data.frame())
@@ -84,6 +112,7 @@ permutationServer <- function(id, link_to_folder, target) {
 
     output$see_perm_results <- renderUI({
       req(!is.null(perm_results()))
+
       h3("Permutation results:")
       # insert selectInput
       shiny::selectInput(session$ns("select_input"),
@@ -120,6 +149,7 @@ permutationServer <- function(id, link_to_folder, target) {
     output$detailed_results_tab <- DT::renderDataTable({
       req(!is.null(perm_results()))
       req(!is.null(pvalues()))
+
       perm_results() %>%
         DT::datatable(
           rownames = FALSE,

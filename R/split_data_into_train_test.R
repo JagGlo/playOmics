@@ -61,9 +61,9 @@ split_data_into_train_test <- function(data, target, prop = 4 / 5) {
   lapply(names(data), function(dataframe) {
     if (dataframe != target$phenotype_df) { # Don't change the phenotype df
       # Subset the training data based on train_id
-      train_data[[dataframe]] <<- data[[dataframe]][data[[dataframe]][, target$id_variable] %in% train_id, ]
+      train_data[[dataframe]] <<- data[[dataframe]][data[[dataframe]][[target$id_variable]] %in% train_id, ]
       # Subset the testing data based on test_id
-      test_data[[dataframe]] <<- data[[dataframe]][data[[dataframe]][, target$id_variable] %in% test_id, ]
+      test_data[[dataframe]] <<- data[[dataframe]][data[[dataframe]][[target$id_variable]] %in% test_id, ]
     }
   })
 

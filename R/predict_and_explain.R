@@ -38,18 +38,20 @@ load_and_predict <- function(path, data) {
 #'
 #' @return The explainer's output for the data. If there is an error, the function logs the error message and returns NULL.
 #'
+#' @importFrom DALEX explain
+#'
 #' @examples
 #' \dontrun{
 #' explanations <- load_and_explain("/path/to/explainer/directory", sample_data)
 #' }
 #'
 #' @importFrom logger log_error
-load_and_explain <- function(path, data) {
+load_and_explain <- function(path, my_data) {
   tryCatch(
     {
       explainer_path <- paste(path, "explainer.Rds", sep = "/")
-      explainer <- readRDS(explainer_path)
-      explainer(data)
+      my_explainer <- readRDS(explainer_path)
+      my_explainer(my_data)
     },
     error = function(e) {
       logger::log_error(e[["message"]])

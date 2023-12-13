@@ -4,6 +4,7 @@
 #' of non-numeric columns, translating logical columns into numbers, converting the ID variable to a character
 #' and the target variable to a factor. It also adds the dataset name to
 #' each variable to distinguish data and relevels the target variable to set the positive class.
+#' Additionally, it removes highly correlated predictors (default).
 #'
 #' @param data A named list of data.frames containing the data to be prepared for modelling.
 #' @param target A named list with the following elements:
@@ -11,6 +12,7 @@
 #'   * id_variable: A character string specifying the ID variable.
 #'   * target_variable: A character string specifying the target variable.
 #'   * positive_class: (Optional) The value of the target variable representing the positive class.
+#' @param remove_correlated_features A logical value indicating whether to remove correlated features (default is TRUE).
 #' @return A named list of processed dataframes.
 #' @export
 #'
@@ -33,7 +35,7 @@
 #' prepared_data <- prepare_data_for_modelling(data, target)
 #' }
 # Define a function that prepares data for modeling
-prepare_data_for_modelling <- function(data, target) {
+prepare_data_for_modelling <- function(data, target, remove_correlated_features = TRUE) {
   data <-
     sapply(names(data), function(dataframe) {
       logger::log_info("Preparing {dataframe} dataframe")
@@ -51,12 +53,23 @@ prepare_data_for_modelling <- function(data, target) {
           df %>%
           # Set up a recipe for one-hot encoding
           recipes::recipe(~.) %>%
-          recipes::step_dummy(all_of(non_numeric_vars)) %>%
+          recipes::step_dummy(all_of(non_numeric_vars), one_hot = TRUE) %>%
           recipes::prep() %>%
           # Apply the recipe to the data
           recipes::bake(df) %>%
           # Convert logical columns to integer columns
           mutate_if(is.logical, as.integer)
+      } else if (remove_correlated_features){
+        df <-
+          df %>%
+          # Set up a recipe for one-hot encoding
+          recipes::recipe(~.) %>%
+          # Remove highly correlated predictors
+          recipes::step_corr(recipes::all_numeric_predictors(), threshold = 0.9) %>%
+          recipes::prep() %>%
+          # Apply the recipe to the data
+          recipes::bake(df)
+        logger::log_info("Removed highly correlated predictors")
       }
 
       # Convert ID variable to a character
@@ -68,7 +81,7 @@ prepare_data_for_modelling <- function(data, target) {
           relocate(target$id_variable, target$target_variable)
 
         # Relevel target variable
-        if (!is.null(target$positive_class)) {
+        if (!is.null(target$positive_class) && !is.null(target$target_variable)) {
           df <- df %>% mutate(!!target$target_variable := fct_relevel(!!sym(target$target_variable), as.character(target$positive_class)))
         }
       } else {

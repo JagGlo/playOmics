@@ -14,6 +14,7 @@
 #' @param explain A logical value indicating whether to create model's explainer using DALEX (default: TRUE).
 #' @param directory A character string indicating the directory where experiment logs and models should be saved. Default is the current working directory.
 #'
+#' @importFrom DALEX explain
 #' @return A tibble containing details of the model, training metrics, and test metrics (if test data provided).
 #' In case of an error during processing, it returns a tibble with only the 'model_id'.
 #' @export
@@ -158,6 +159,15 @@ create_model <- function(
 
         # fit model on entire training data
         fitted_model <- fit(model_wflow, train_data)
+
+        # log the model coefficients
+        if (log_experiment) {
+          broom::tidy(fitted_model) %>%
+            split(., .$term) %>%
+            jsonlite::write_json(file.path(model_dir, "model_coef.json"),
+                                 pretty = TRUE, auto_unbox = TRUE
+            )
+        }
 
         if (nrow(test_data) > 0) {
           ## get predictions

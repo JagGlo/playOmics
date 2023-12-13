@@ -100,7 +100,11 @@ predictionServer <- function(id, df, values, target) {
     output$show_prediction <- DT::renderDT({
       req(!is.null(values$prediction_data))
       predicted <- load_and_predict(values$model_link, values$prediction_data)
-      values$prediction_result <- bind_cols(values$prediction_data[,1],predicted)
+      if(nrow(predicted) > 1) {
+        values$prediction_result <- bind_cols(values$prediction_data[,1],predicted)
+      } else {
+        values$prediction_result <- predicted
+      }
       values$prediction_result %>%
         mutate_if(is.numeric, round, 3) %>%
         DT::datatable(
@@ -136,7 +140,7 @@ predictionServer <- function(id, df, values, target) {
           choices = na.omit(values$prediction_data)[[target$id_variable]],
           selected = na.omit(values$prediction_data)[[target$id_variable]][1]
         )
-      } else NULL
+      }
     })
 
     output$explain <- renderPlot({
