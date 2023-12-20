@@ -145,6 +145,8 @@ create_multiple_models <- function(experiment_name,
     reduce(full_join, by = c(target$target_variable, target$id_variable)) %>%
     select(-target$id_variable, -target$target_variable, everything())
 
+  logger::log_info("Number of features in the final set: {ncol(train_data_united)-2} features.")
+
   # prepare test data
   test_data_united <- prepare_test_data(test_data, target)
 
@@ -183,26 +185,28 @@ create_multiple_models <- function(experiment_name,
   # Log the start of the experiment
   logger::log_info("Starting modelling experiment")
 
+  # Determine the type of cluster based on the operating system
+  cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
+
+  # Create a cluster with the appropriate type
+  cl <- autoStopCluster(parallel::makeCluster(n_cores, type = cluster_type))
+
+  if (cluster_type == "PSOCK") {
+    parallel::clusterExport(cl = cl, varlist = c("train_data_united", "test_data_united", "target", "directory", "create_model"), envir = environment())
+    parallel::clusterEvalQ(cl, {
+      library(tidyverse)
+      # library(playOmics)
+    })
+  }
+
   # Process each chunk
   results <-
     lapply(1:length(chunks), function(n) {
+
       chunk_list <- names(chunks)[[n]]
       n <- n + 1
-      logger::log_info(sprintf("There are %d %s to be constructed", length(chunks[[chunk_list]]), chunk_list))
 
-      # Determine the type of cluster based on the operating system
-      cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-
-      # Create a cluster with the appropriate type
-      cl <- autoStopCluster(parallel::makeCluster(n_cores, type = cluster_type))
-
-      if (cluster_type == "PSOCK") {
-        parallel::clusterExport(cl = cl, varlist = c("train_data_united", "test_data_united", "target", "directory", "create_model"), envir = environment())
-        parallel::clusterEvalQ(cl, {
-          library(tidyverse)
-          # library(playOmics)
-        })
-      }
+      logger::log_info(sprintf("Processing: %d %s to be evaluated.", length(chunks[[chunk_list]]), chunk_list))
 
       models <-
         chunks[[chunk_list]] %>%
@@ -220,50 +224,55 @@ create_multiple_models <- function(experiment_name,
 
           model_result <-
             create_model(train_data,
-              test_data,
-              target,
-              log_experiment = log_experiment,
-              explain = explain,
-              directory = directory,
-              validation_method = validation_method,
-              n_prop = n_prop,
-              n_repeats = n_repeats
+                         test_data,
+                         target,
+                         log_experiment = log_experiment,
+                         explain = explain,
+                         directory = directory,
+                         validation_method = validation_method,
+                         n_prop = n_prop,
+                         n_repeats = n_repeats
             )
 
           model_result
         })
 
-      parallel::stopCluster(cl)
-      closeAllConnections()
+      logger::log_info("Processing {chunk_list} ended.")
 
       # save stats
       saveRDS(models, file = paste(directory, paste0(chunk_list, "_stats.Rds"), sep = "/"))
 
       # trim models
       if (n < n_max & trim_models) {
+        logger::log_info("===============================================")
+        logger::log_info("Initial Setup: Preparing {length(chunks[[n]])} {n+1}-vars models for construction.")
         models_tbr <- models[lengths(models) > 1]
         toremove <- na.omit(models_tbr[sapply(models_tbr, "[[", trim_metric) <= trim_threshold])
         toremove <- toremove[lengths(toremove) > 0]
-        logger::log_info("There are {length(toremove)} {n}-vars models to be removed")
+        extracted_elements <- sapply(toremove, function(y) as.vector(str_split(y$model_name, pattern = "\\s\\+\\s")))
+        logger::log_info("Trimming: {length(toremove)} {n}-vars models below defined threshold.")
 
         models_tbr <-
-          lapply(chunks[[n]], function(x) {
+          parallel::parLapply(cl, chunks[[n]], function(x) {
             any(
               as.logical(
-                lapply(toremove, function(y) {
-                  all(unlist(as.vector(str_split(y$model_name, pattern = "\\s\\+\\s"))) %in% x)
+               lapply(extracted_elements, function(y) {
+                  all(y %in% x)
                 })
               )
             )
           })
 
-        logger::log_info("There are {sum(unlist(models_tbr))} {n+1}-vars models to be removed")
+        logger::log_info("Removal Notice: There are {sum(unlist(models_tbr))} {n+1}-vars models to be removed.")
 
         chunks[[n]] <<- chunks[[n]][!unlist(models_tbr)]
       }
 
       models
     })
+
+  parallel::stopCluster(cl)
+  closeAllConnections()
 
   logger::log_info("Modelling experiment ended")
 

@@ -4,7 +4,7 @@
 \alias{load_and_explain}
 \title{Load Explainer and Generate Explanations}
 \usage{
-load_and_explain(path, data)
+load_and_explain(path, my_data)
 }
 \arguments{
 \item{path}{The directory path where the explainer is saved.}

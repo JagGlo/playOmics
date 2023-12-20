@@ -12,7 +12,7 @@
 #'   * id_variable: A character string specifying the ID variable.
 #'   * target_variable: A character string specifying the target variable.
 #'   * positive_class: (Optional) The value of the target variable representing the positive class.
-#' @param remove_correlated_features A logical value indicating whether to remove correlated features (default is TRUE).
+#' @param remove_correlated_features A logical value indicating whether to remove correlated features (default is FALSE).
 #' @return A named list of processed dataframes.
 #' @export
 #'
@@ -35,7 +35,7 @@
 #' prepared_data <- prepare_data_for_modelling(data, target)
 #' }
 # Define a function that prepares data for modeling
-prepare_data_for_modelling <- function(data, target, remove_correlated_features = TRUE) {
+prepare_data_for_modelling <- function(data, target, remove_correlated_features = FALSE) {
   data <-
     sapply(names(data), function(dataframe) {
       logger::log_info("Preparing {dataframe} dataframe")

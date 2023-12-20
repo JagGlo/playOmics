@@ -4,7 +4,7 @@
 \alias{prepare_data_for_modelling}
 \title{Prepare data for modelling}
 \usage{
-prepare_data_for_modelling(data, target)
+prepare_data_for_modelling(data, target, remove_correlated_features = FALSE)
 }
 \arguments{
 \item{data}{A named list of data.frames containing the data to be prepared for modelling.}
@@ -14,6 +14,8 @@ prepare_data_for_modelling(data, target)
 * id_variable: A character string specifying the ID variable.
 * target_variable: A character string specifying the target variable.
 * positive_class: (Optional) The value of the target variable representing the positive class.}
+
+\item{remove_correlated_features}{A logical value indicating whether to remove correlated features (default is FALSE).}
 }
 \value{
 A named list of processed dataframes.
@@ -23,6 +25,7 @@ This function preprocesses the data for modelling, including one-hot encoding
 of non-numeric columns, translating logical columns into numbers, converting the ID variable to a character
 and the target variable to a factor. It also adds the dataset name to
 each variable to distinguish data and relevels the target variable to set the positive class.
+Additionally, it removes highly correlated predictors (default).
 }
 \examples{
 \dontrun{

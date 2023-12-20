@@ -28,23 +28,23 @@ create_model <- function(
   model_name <- paste(colnames(train_data)[!(colnames(train_data) %in% c(target$target_variable))], collapse = " + ")
   # Model names are unique within an analysis
   model_id <- digest::digest(model_name)
-
+  
   results <-
     tryCatch(
       {
         if (log_experiment) {
           model_dir <- file.path(directory, model_id)
           dir.create(model_dir)
-
+          
           # Create logger
           log_path <- paste(model_dir, "model_logs.json", sep = "/")
           logger::log_appender(logger::appender_file(log_path))
           logger::log_threshold(logger::DEBUG)
           logger::log_layout(logger::layout_json())
-
+          
           logger::log_info("Model '{model_name}' started")
         }
-
+        
         if (log_experiment) {
           model_details <-
             tibble(
@@ -60,7 +60,7 @@ create_model <- function(
               model_dir = NULL
             )
         }
-
+        
         n_groups <-
           train_data %>%
           count(!!rlang::sym(target$target_variable)) %>%
@@ -68,7 +68,7 @@ create_model <- function(
             names_from = all_of(target$target_variable), names_prefix = "n_", values_from = n
           ) %>%
           lapply(identity)
-
+        
         if (log_experiment) {
           # Log parameters
           list(
@@ -79,44 +79,44 @@ create_model <- function(
             n_repeats = n_repeats
           ) %>%
             jsonlite::write_json(file.path(model_dir, "params.json"),
-              pretty = TRUE, auto_unbox = TRUE
+                                 pretty = TRUE, auto_unbox = TRUE
             )
         }
-
+        
         # Define model
         data_recipe <-
           recipes::recipe(train_data) %>%
           recipes::update_role(target$target_variable, new_role = "outcome") %>%
           recipes::update_role(recipes::has_role(NA), new_role = "predictor")
-
+        
         # Model specification
         model_spec <-
           parsnip::logistic_reg() %>% # model type
           parsnip::set_engine(engine = "glm") %>% # model engine
           parsnip::set_mode("classification") # model mode
-
+        
         # Validation
         if (validation_method == "subsampling") {
           resample <-
             rsample::mc_cv(train_data,
-              prop = n_prop,
-              times = n_repeats,
-              strata = target$target_variable
+                           prop = n_prop,
+                           times = n_repeats,
+                           strata = target$target_variable
             )
         } else if (validation_method == "cv") {
           resample <-
             rsample::vfold_cv(train_data,
-              v = n_repeats,
-              strata = target$target_variable
+                              v = n_repeats,
+                              strata = target$target_variable
             )
         }
-
+        
         # Define workflow
         model_wflow <-
           workflows::workflow() %>%
           workflows::add_recipe(data_recipe) %>%
           workflows::add_model(model_spec)
-
+        
         custom_metrics <-
           yardstick::metric_set(
             yardstick::mcc,
@@ -131,7 +131,7 @@ create_model <- function(
             yardstick::pr_auc,
             yardstick::f_meas
           )
-
+        
         model_res <- model_wflow %>%
           tune::fit_resamples(
             resamples = resample,
@@ -140,26 +140,26 @@ create_model <- function(
               save_pred = TRUE, allow_par = F
             )
           )
-
+        
         if (log_experiment) {
           logger::log_eval(
             model_res,
             multiline = TRUE, level = logger::WARN
           )
         }
-
+        
         train_results <-
           model_res %>%
           tune::collect_metrics(summarize = T) %>%
           select(.metric, mean) %>%
           pivot_wider(names_from = .metric, values_from = mean) %>%
           rename_with(~ paste0("train_", .x))
-
+        
         train_results <- bind_cols(n_groups, train_results)
-
+        
         # fit model on entire training data
         fitted_model <- fit(model_wflow, train_data)
-
+        
         # log the model coefficients
         if (log_experiment) {
           broom::tidy(fitted_model) %>%
@@ -168,15 +168,15 @@ create_model <- function(
                                  pretty = TRUE, auto_unbox = TRUE
             )
         }
-
+        
         if (nrow(test_data) > 0) {
           ## get predictions
           test_results <-
             predict(fitted_model, new_data = test_data) %>%
             bind_cols(predict(fitted_model, new_data = test_data, type = "prob")) %>%
             bind_cols(test_data %>%
-              select(target$target_variable))
-
+                        select(target$target_variable))
+          
           custom_metrics <-
             yardstick::metric_set(
               yardstick::mcc,
@@ -189,22 +189,24 @@ create_model <- function(
               yardstick::npv,
               yardstick::f_meas
             )
-
+          
           test_metrics <-
             custom_metrics(test_results,
-              truth = !!target$target_variable,
-              estimate = .pred_class
+                           truth = !!target$target_variable,
+                           estimate = .pred_class,
+                           na_rm = T
             ) %>%
-            # bind_rows(
-            #   yardstick::roc_auc(test_results,
-            #                  truth =  !!target$target_variable,
-            #                  estimate = !!paste0(".pred_", target$positive_class)
-            #   )
-            # ) %>%
+            bind_rows(
+              yardstick::roc_auc(test_results,
+                             truth =  !!target$target_variable,
+                             !!paste0(".pred_", target$positive_class),
+                             na_rm = T
+              )
+            ) %>%
             mutate(`.metric` = paste0("test_", `.metric`)) %>%
             select(-`.estimator`) %>%
             pivot_wider(names_from = `.metric`, values_from = `.estimate`)
-
+          
           test_metrics <-
             bind_cols(
               test_data %>%
@@ -225,7 +227,7 @@ create_model <- function(
                 pivot_wider(names_from = guessed, values_from = n),
               test_metrics
             )
-
+          
           results <-
             bind_cols(
               model_details,
@@ -239,7 +241,7 @@ create_model <- function(
               train_results
             )
         }
-
+        
         if (log_experiment) {
           # log metrics
           jsonlite::write_json(
@@ -247,7 +249,7 @@ create_model <- function(
             file.path(model_dir, "metrics.json"),
             pretty = TRUE, auto_unbox = TRUE
           )
-
+          
           # save model
           saveRDS(
             carrier::crate(
@@ -262,7 +264,7 @@ create_model <- function(
             file.path(model_dir, "model.Rds")
           )
         }
-
+        
         if (explain) {
           # explain prediction
           explainer_lr <-
@@ -274,7 +276,7 @@ create_model <- function(
               verbose = FALSE
             )
         }
-
+        
         if (all(log_experiment, explain)) {
           saveRDS(
             carrier::crate(
@@ -290,7 +292,7 @@ create_model <- function(
             file.path(model_dir, "explainer.Rds")
           )
         }
-
+        
         if (log_experiment) {
           # save raw data
           saveRDS(
@@ -301,7 +303,7 @@ create_model <- function(
           )
           logger::log_info("Model '{model_name}' ended")
         }
-
+        
         # return metrics
         results
       },
