@@ -52,18 +52,26 @@ prepare_data_for_modelling <- function(data, target, remove_correlated_features 
         df <-
           df %>%
           # Set up a recipe for one-hot encoding
-          recipes::recipe(~.) %>%
+          recipes::recipe() %>%
+          recipes::update_role(everything()) %>%
+          recipes::update_role(target$target_variable, new_role = "outcome") %>%
+          recipes::update_role(target$id_variable, new_role = "id variable") %>%
           recipes::step_dummy(all_of(non_numeric_vars), one_hot = TRUE) %>%
           recipes::prep() %>%
           # Apply the recipe to the data
           recipes::bake(df) %>%
           # Convert logical columns to integer columns
           mutate_if(is.logical, as.integer)
-      } else if (remove_correlated_features){
+      }
+      # Remove highly correlated predictors
+      if (remove_correlated_features){
         df <-
           df %>%
           # Set up a recipe for one-hot encoding
-          recipes::recipe(~.) %>%
+          recipes::recipe() %>%
+          recipes::update_role(everything()) %>%
+          # recipes::update_role(target$target_variable, new_role = "outcome") %>%
+          recipes::update_role(target$id_variable, new_role = "id variable") %>%
           # Remove highly correlated predictors
           recipes::step_corr(recipes::all_numeric_predictors(), threshold = 0.9) %>%
           recipes::prep() %>%

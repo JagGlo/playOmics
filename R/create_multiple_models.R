@@ -9,6 +9,7 @@ autoStopCluster <- function(cl) {
     message(capture.output(print(e$cluster)))
     try(parallel::stopCluster(e$cluster), silent = FALSE)
     closeAllConnections()
+    logger::log_appender(logger::appender_console)
     message("Finalizing cluster ... done")
   })
   cl
@@ -125,6 +126,7 @@ create_multiple_models <- function(experiment_name,
                                    n_repeats = 5,
                                    log_experiment = TRUE,
                                    explain = TRUE,
+                                   add_weights = FALSE,
                                    # configuration
                                    n_cores = parallel::detectCores() / 4,
                                    directory = getwd()) {
@@ -212,6 +214,7 @@ create_multiple_models <- function(experiment_name,
         chunks[[chunk_list]] %>%
         parallel::parLapply(cl, ., function(single_model) {
           # lapply(function(single_model) {
+
           # allow only for non-missing data
           # remove identifier so it won't be required when predicting on new data
           train_data <-
@@ -228,6 +231,7 @@ create_multiple_models <- function(experiment_name,
                          target,
                          log_experiment = log_experiment,
                          explain = explain,
+                         add_weights = add_weights,
                          directory = directory,
                          validation_method = validation_method,
                          n_prop = n_prop,

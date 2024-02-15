@@ -91,10 +91,12 @@ select_features <- function(data, ranking, target, cutoff_method, cutoff_treshol
 #' Default is "top_n".
 #' @param cutoff_treshold Depending of a cutoff method, a number of features to be selected (for "top_n" method),
 #'percentage of variables to be selected (for "percentage" method), a threshold above which features are selected (for "percentage" method). Default is 1.
-#' @param n_threads An integer value specifying the number of threads to be
-#' used for feature ranking. Default is 1.
+#' @param return_ranking_list A logical value specifying whether to return the
+#' ranking list. Default is FALSE. If set to TRUE, the function will return a list containing the filtered datasets and the ranking list.
 #' @param n_fold An integer value specifying the number of folds for
 #' cross-validation. Cross-validation is used for overfitting prevention. A ranking of  Default is 5.
+#' @param n_threads An integer value specifying the number of threads to be
+#' used for feature ranking. Default is 1.
 #'
 #' @return A list containing the filtered datasets.
 #'
@@ -106,13 +108,14 @@ select_features <- function(data, ranking, target, cutoff_method, cutoff_treshol
 #'
 #' @export
 
-nested_filtering <- function(data, target, filter_name = "auc", cutoff_method = "top_n", cutoff_treshold = 10, n_threads = 1, n_fold = 5) {
+nested_filtering <- function(data, target, filter_name = "auc", cutoff_method = "top_n", cutoff_treshold = 10,
+                             return_ranking_list = F, n_fold = 5, n_threads = 1) {
 
   # Extract target data from the input data
   target_data <-
     data[[target$phenotype_df]] %>%
     select(target$id_variable, target$target_variable)
-
+ranking <-
   sapply(names(data), function(dataframe) {
     logger::log_info("Ranking {dataframe} data")
 
@@ -151,5 +154,16 @@ nested_filtering <- function(data, target, filter_name = "auc", cutoff_method = 
     # Select the top features based on the ranking using the select_features function
     ranked_features$selected_features <-
       select_features(data[[dataframe]], ranked_features$ranking, target, cutoff_method = cutoff_method, cutoff_treshold = cutoff_treshold)
+
+    return(ranked_features)
   }, USE.NAMES = TRUE, simplify = F)
+
+  filtered_data <- lapply(ranking, function(x) x$selected_features)
+  ranking_list <- lapply(ranking, function(x) x$ranking)
+
+  if (return_ranking_list) {
+    return(list(filtered_data = filtered_data, ranking_list = ranking_list))
+  } else {
+    return(filtered_data)
+  }
 }
