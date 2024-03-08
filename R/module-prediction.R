@@ -27,9 +27,9 @@ predictionServer <- function(id, df, values, target) {
     # A reactive value to store error messages
     error_message <- reactiveVal(NULL)
 
-    output$predict_dashboard <- renderUI({
-      tagList(
-        fluidPage(
+    dynamicUI <- reactive({
+      # tagList(
+      #   fluidPage(
           if (input$select_input == "Insert values") {
             names <- na.omit(results$model_name[results$model_dir == values$model_link])
             vars <-
@@ -43,8 +43,17 @@ predictionServer <- function(id, df, values, target) {
             dataframes <- ls(envir = .GlobalEnv)[sapply(mget(ls(envir = .GlobalEnv), envir = .GlobalEnv), is.data.frame) | sapply(mget(ls(envir = .GlobalEnv), envir = .GlobalEnv), is.list)]
             selectInput(session$ns("env_dataframe"), "Select a dataframe or a list:", dataframes)
           }
-        ),
-        actionButton(session$ns("predict"), "Predict")
+      #   ),
+      #   actionButton(session$ns("predict"), "Predict")
+      # )
+    })
+
+    output$predict_dashboard <- renderUI({
+      tagList(
+        fluidPage(
+          dynamicUI(),  # Use the reactive expression for dynamic UI components
+          actionButton(session$ns("predict"), "Predict")
+        )
       )
     })
 
@@ -78,6 +87,7 @@ predictionServer <- function(id, df, values, target) {
                 select(target$id_variable, vars)
               },
               error = function(e) {
+                values$prediction_data <- NULL
                 # Update the reactive value with the error message
                 # check if "vars" exist in the data_from_env
                 if(!all(vars %in% names(data_from_env))){
@@ -94,13 +104,26 @@ predictionServer <- function(id, df, values, target) {
           }
       }
 
-      values$prediction_data <- new_data
+      if(all(setdiff(names(new_data), names(new_data) != "") == vars)){
+        values$prediction_data <- new_data[!is.na(names(new_data))]
+      } else {
+        values$prediction_data <- NULL
+      }
+
+      lapply(1:length(vars), function(i) {
+            updateNumericInput(session, session$ns(paste0("input", i)), value = NULL)
+        })
+
     })
 
     output$show_prediction <- DT::renderDT({
+
       req(!is.null(values$prediction_data))
+
       predicted <- load_and_predict(values$model_link, values$prediction_data)
-      if(nrow(predicted) > 1) {
+
+
+      if(!is.null(predicted) & nrow(predicted) > 1) {
         values$prediction_result <- bind_cols(values$prediction_data[,1],predicted)
       } else {
         values$prediction_result <- predicted
@@ -133,6 +156,7 @@ predictionServer <- function(id, df, values, target) {
     #if nrow(values$prediction_data) > 1, select one row for explanation with selector
     output$choose_ID_to_explain <- renderUI({
       req(!is.null(values$prediction_data))
+      req(all(names(values$prediction_data) == setdiff(names(values$df_data), target$target_variable)))
       if (nrow(values$prediction_result) > 1) {
         selectInput(
           session$ns("explanation_id"),
@@ -144,7 +168,8 @@ predictionServer <- function(id, df, values, target) {
     })
 
     output$explain <- renderPlot({
-      req(!is.null(values$prediction_result))
+      req(!is.null(values$prediction_data))
+      req(all(names(values$prediction_data) == setdiff(names(values$df_data), target$target_variable)))
       req(is.null(error_message()))
 
       if (nrow(values$prediction_result) > 1) {
@@ -156,7 +181,14 @@ predictionServer <- function(id, df, values, target) {
         data_to_predict <- values$prediction_data
       }
 
-      explained <- load_and_explain(values$model_link, data_to_predict)
+      tryCatch({
+        explained <- load_and_explain(values$model_link, data_to_predict)
+      },
+      error = function(e) {
+        values$prediction_data <- NULL
+        error_message(e)
+      }
+      )
 
       explained %>%
         group_by(variable) %>%
@@ -171,8 +203,12 @@ predictionServer <- function(id, df, values, target) {
         ) +
         geom_boxplot(width = 0.5) +
         theme_bw() +
-        theme(legend.position = "none", axis.text = element_text(size = 12)) +
-        labs(y = NULL)
+        labs(y = NULL) +
+        theme(legend.position = "top", text=element_text(size=20,  family="Helvetica"),
+              plot.title = element_text(size=20),
+              axis.text = element_text(size=20, colour = "black"),
+              strip.text.x = element_text(size = 20))
+
     })
   })
 }

@@ -2,6 +2,7 @@ results_GUI <- function(results, target) {
   ui <- fluidPage(
     column(uiOutput("choose_metrics"), width = 3),
     DT::dataTableOutput("data"),
+    shinybusy::add_busy_bar(centered = T, color = "#0047ab"),
     tabsetPanel(
       id = "tabset",
       tabPanel(
@@ -9,7 +10,7 @@ results_GUI <- function(results, target) {
         actionButton("add_plot", "Add new plot"),
         verticalLayout(
           div(id = "addPlaceholder"),
-          shinyjs::useShinyjs(debug = TRUE),
+          shinyjs::useShinyjs(debug = TRUE)
         )
       ),
       tabPanel(
@@ -18,8 +19,10 @@ results_GUI <- function(results, target) {
       ),
       tabPanel(
         "Single model overview",
+        htmlOutput("this_is_single_model_overview"),
         DT::dataTableOutput("present_data"),
-        plotly::plotlyOutput("3dplot"),
+        uiOutput("conditionalUI"),
+        plotly::plotlyOutput("plotOutput"),
         DT::dataTableOutput("variable_stats"),
         permutationUI("permutations")
       ),
@@ -98,6 +101,8 @@ results_GUI <- function(results, target) {
         select(input$select_metrics) %>%
         DT::datatable(
           extensions = c("Buttons", "Scroller"),
+          caption = "Experiment results",
+          selection = "single",
           # filter = "top",
           options = list(
             # searching = FALSE,
@@ -106,12 +111,14 @@ results_GUI <- function(results, target) {
             deferRender = TRUE,
             scroller = TRUE,
             scrollX = TRUE,
-            scrollY = 400,
+            scrollY = 300,
+            scrollCollapse = TRUE,
             buttons = c("copy", "csv", "excel", "pdf", "print")
           ),
           class = "cell-border strip hover",
           escape = FALSE
-        )
+        ) %>%
+        DT::formatStyle(names(df$data), lineHeight = "5%")
     })
 
     output$analytes_stats <- DT::renderDT({
@@ -130,7 +137,6 @@ results_GUI <- function(results, target) {
       }) %>%
         bind_rows()
 
-
       vars %>%
         left_join(df$data, by = "model_name") %>%
         group_by(variable) %>%
@@ -139,7 +145,8 @@ results_GUI <- function(results, target) {
           vars %>%
             left_join(df$data, by = "model_name") %>%
             group_by(variable) %>%
-            summarise_if(is.numeric, mean, na.rm = T),
+            summarise_if(is.numeric, mean, na.rm = T) %>%
+            rename_with(~ paste0("avg_", .x), -variable),
           by = "variable"
         ) %>%
         mutate_if(is.numeric, round, 3) %>%
@@ -160,6 +167,9 @@ results_GUI <- function(results, target) {
         )
     })
 
+    output$this_is_single_model_overview <- renderUI({
+      h3("Training data:")
+    })
 
     observeEvent(input$present_data_btn, {
       updateTabsetPanel(
@@ -167,9 +177,8 @@ results_GUI <- function(results, target) {
         "tabset",
         selected = "Single model overview"
       )
-
       selectedRow <- as.numeric(strsplit(input$present_data_btn, "_")[[1]][2])
-      values$dir <- results$model_dir[selectedRow]
+      values$dir <<- results$model_dir[selectedRow]
       link_to_data <- paste(values$dir, "train_data.Rds", sep = "/")
       values$df_data <<- readRDS(link_to_data)
       permutationServer("permutations", values$dir, target)
@@ -187,7 +196,7 @@ results_GUI <- function(results, target) {
             deferRender = TRUE,
             scroller = TRUE,
             scrollX = TRUE,
-            scrollY = 400,
+            scrollY = 300,
             buttons = c("copy", "csv", "excel", "pdf", "print")
           ),
           class = "cell-border strip hover"
@@ -198,54 +207,96 @@ results_GUI <- function(results, target) {
       req(nrow(values$df_data) > 0)
       count_stats_per_model(values$df_data, target) %>%
         DT::datatable(
+          caption = "Variable statistics across classes. Median and IQR are calculated for numeric variables, and counts for factors.",
           options = list(searching = FALSE, paging = FALSE, server = FALSE, escape = FALSE, selection = "none")
         )
     })
 
     output$variable_stats_plots <- renderPlot({
-      lapply(1:(length(values$df_data)-1), function(i){
+      lapply(1:(length(values$df_data) - 1), function(i) {
+        data <- values$df_data[, c(i, length(values$df_data))]
 
-       data <- values$df_data[,c(i, length(values$df_data))]
+        unique_counts <-
+          data %>%
+          summarise_all(n_distinct)
 
-       unique_counts <-
-         data %>%
-         summarise_all(n_distinct)
+        fct_names <- names(unique_counts[which(unique_counts == 2)])
 
-       fct_names <- names(unique_counts[which(unique_counts == 2)])
+        data <-
+          data %>%
+          mutate_at(fct_names, as.factor)
 
-       data <-
-         data %>%
-         mutate_at(fct_names, as.factor)
-
-       if(is.numeric(data[1])){
-         raincloud_plot(data)
-       } else if(is.factor(data[[1]])){
-         ggplot(aes(x = get(names(data)[2]), y = get(names(data)[1]), fill = get(names(data)[2])), data = data)
-       }
-
+        if (is.numeric(data[1])) {
+          raincloud_plot(data)
+        } else if (is.factor(data[[1]])) {
+          ggplot(aes(x = get(names(data)[2]), y = get(names(data)[1]), fill = get(names(data)[2])), data = data)
+        }
       })
-
     })
 
-    output$`3dplot` <- plotly::renderPlotly({
-      req(input$present_data_btn)
-      if (length(values$df_data) == 3) {
+    output$conditionalUI <- renderUI({
+      req(input$present_data_btn) # Ensure button has been clicked
+
+      if (length(values$df_data) >= 5) {
+        tagList(
+          selectInput("plotColumns", "Choose Columns to Plot:",
+            choices = setdiff(names(values$df_data), target$target_variable),
+            selected = names(values$df_data)[c(1, 2)], # Default selection
+            multiple = TRUE
+          )
+        )
+      }
+    })
+
+
+    output$plotOutput <- plotly::renderPlotly({
+      req(input$present_data_btn) # Ensure button has been clicked
+      req(values$df_data) # Ensure the data is loaded
+
+      if (!is.null(input$plotColumns)) {
+        selected_cols <- input$plotColumns
+      } else {
+        selected_cols <- setdiff(names(values$df_data), target$target_variable)
+      }
+
+      req(length(selected_cols) >= 2) # Ensure at least two columns are selected
+
+      if (length(selected_cols) == 2) {
         p <-
           values$df_data %>%
-          ggplot(aes_(x = as.name(names(values$df_data)[1]), y = as.name(names(values$df_data)[2]), color = as.name(target$target_variable))) +
+          ggplot(aes_(x = as.name(selected_cols[1]), y = as.name(selected_cols[2]), color = as.name(target$target_variable))) +
           geom_jitter(width = 0.1, height = 0.1) +
           theme_bw()
         plotly::ggplotly(p)
-      } else {
+      } else if (length(selected_cols) == 3) {
+
+        hover_text <- paste(
+          selected_cols[1], ": ", values$df_data[[selected_cols[1]]],
+          "<br>", selected_cols[2], ": ", values$df_data[[selected_cols[2]]],
+          "<br>", selected_cols[3], ": ", values$df_data[[selected_cols[3]]],
+          "<br>", target$target_variable, ": ", values$df_data[[target$target_variable]]
+        )
+
+
         plotly::plot_ly(values$df_data,
-          x = as.formula(paste0("~\u0060", names(values$df_data)[1], "\u0060")),
-          y = as.formula(paste0("~\u0060", names(values$df_data)[2], "\u0060")),
-          z = as.formula(paste0("~\u0060", names(values$df_data)[3], "\u0060")),
+          x = ~ jitter(values$df_data[[selected_cols[1]]]),
+          y = ~ jitter(values$df_data[[selected_cols[2]]]),
+          z = ~ jitter(values$df_data[[selected_cols[3]]]),
+          text = hover_text, # Custom hover text
+          hoverinfo = "text", # Display only the custom text
           color = as.formula(paste0("~", target$target_variable)),
           colors = c("#0C4B8E", "#BF382A"),
           type = "scatter3d",
           mode = "markers"
-        )
+        ) %>%
+          plotly::layout(scene = list(
+            xaxis = list(title = selected_cols[1]),
+            yaxis = list(title = selected_cols[2]),
+            zaxis = list(title = selected_cols[3])
+          ))
+      } else {
+        # print error
+        print("Too many columns selected for 2D or 3D plot. Please select 2 or 3 columns.")
       }
     })
 

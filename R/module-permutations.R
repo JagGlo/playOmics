@@ -38,8 +38,10 @@ permutationServer <- function(id, link_to_folder, target) {
       h3("Validate with permutations:")
     })
 
-    perm_results <- reactive({
+    perm_results <- eventReactive(input$permute, {
       req(input$permute)
+      #require no_of_per to be higher than 0
+      req(input$no_of_permutations > 0)
 
       no_of_perm <- as.numeric(input$no_of_permutations)
       n_cores <- as.numeric(input$no_of_cores)
@@ -78,6 +80,7 @@ permutationServer <- function(id, link_to_folder, target) {
               target,
               log_experiment = FALSE,
               explain = FALSE,
+              add_weights = params$add_weights,
               validation_method = params$validation_method,
               n_prop = params$n_prop,
               n_repeats = params$n_repeats
@@ -88,9 +91,15 @@ permutationServer <- function(id, link_to_folder, target) {
         bind_rows(.id = "permutation_no")
 
       parallel::stopCluster(cl)
+      updateNumericInput(session, "no_of_permutations", value = 0)
 
     permutation_results
     })
+
+    #prevent from running the reactive if the button was not clicked
+    # observeEvent(input$permute, {
+    #   updateNumericInput(session, "no_of_permutations", value = 0)
+    # })
 
     original_model_result <- reactive(jsonlite::fromJSON(paste(link_to_folder, "metrics.json", sep = "/"), simplifyVector = T) %>% data.frame())
 
@@ -126,11 +135,32 @@ permutationServer <- function(id, link_to_folder, target) {
       req(!is.null(perm_results()))
       req(input$select_input)
       metric <- as.name(input$select_input)
-      perm_results() %>%
-        ggplot(aes(x = !!metric)) +
-        geom_density() +
-        geom_vline(xintercept = original_model_result()[[metric]], linetype = "dashed") +
-        theme_bw()
+      # Extract the metric value
+      metric_value <- original_model_result()[[metric]]
+
+      # Start the ggplot
+      p <- perm_results() %>%
+        ggplot(aes_string(x = metric)) +
+        geom_density()
+
+      # If metric_value is not NA, add the geom_vline
+      if (metric_value != "NaN") {
+        p <- p +
+          geom_vline(aes(xintercept = metric_value, color = "non-permuted value"), linetype = "dashed", linewidth = 1) +
+          scale_color_manual(name = "", values = "red", labels = "non-permuted value") +
+          guides(color = guide_legend(override.aes = list(linetype = "dashed")))
+      } else {
+        #add a note to plot/legend "unknown non-permuted value"
+        p <- p + labs(caption = "Unknown non-permuted value")
+      }
+
+      # Add any additional layers/theme
+      p + theme_bw() +
+        labs(title = "Permutation test results") +
+        theme(legend.position = "top", text=element_text(size=20,  family="Helvetica"),
+              plot.title = element_text(size=20),
+              axis.text = element_text(size=20, colour = "black"),
+              strip.text.x = element_text(size = 20))
     })
 
     output$results_tab <- DT::renderDataTable({
