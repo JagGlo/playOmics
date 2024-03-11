@@ -19,7 +19,9 @@ read_model_data <- function(experiment_name, directory = getwd()) {
   # Read and combine metrics data from RDS files
   results <-
     lapply(list.files(path = paste(directory, experiment_name, sep = "/"), pattern = "*.Rds", full.names = T), function(f) {
-      readRDS(f)
+      readRDS(f) %>% 
+        bind_rows() %>% 
+        tibble::add_column("m_vars" = str_extract(f, "\\d{1}-vars"), .after = 1)
     }) %>%
     bind_rows()
 
