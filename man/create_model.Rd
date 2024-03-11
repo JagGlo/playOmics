@@ -13,6 +13,7 @@ create_model(
   n_repeats = 5,
   log_experiment = TRUE,
   explain = TRUE,
+  add_weights = FALSE,
   directory = getwd()
 )
 }
@@ -32,6 +33,8 @@ create_model(
 \item{log_experiment}{A logical value indicating whether to log the experiment details and results. Default is TRUE.}
 
 \item{explain}{A logical value indicating whether to create model's explainer using DALEX (default: TRUE).}
+
+\item{add_weights}{A logical value indicating whether to add weights to the training data based on the class imbalance. Default is FALSE.}
 
 \item{directory}{A character string indicating the directory where experiment logs and models should be saved. Default is the current working directory.}
 }

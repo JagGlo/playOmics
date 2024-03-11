@@ -10,8 +10,9 @@ nested_filtering(
   filter_name = "auc",
   cutoff_method = "top_n",
   cutoff_treshold = 10,
-  n_threads = 1,
-  n_fold = 5
+  return_ranking_list = F,
+  n_fold = 5,
+  n_threads = 1
 )
 }
 \arguments{
@@ -33,11 +34,14 @@ Default is "top_n".}
 \item{cutoff_treshold}{Depending of a cutoff method, a number of features to be selected (for "top_n" method),
 percentage of variables to be selected (for "percentage" method), a threshold above which features are selected (for "percentage" method). Default is 1.}
 
-\item{n_threads}{An integer value specifying the number of threads to be
-used for feature ranking. Default is 1.}
+\item{return_ranking_list}{A logical value specifying whether to return the
+ranking list. Default is FALSE. If set to TRUE, the function will return a list containing the filtered datasets and the ranking list.}
 
 \item{n_fold}{An integer value specifying the number of folds for
 cross-validation. Cross-validation is used for overfitting prevention. A ranking of  Default is 5.}
+
+\item{n_threads}{An integer value specifying the number of threads to be
+used for feature ranking. Default is 1.}
 }
 \value{
 A list containing the filtered datasets.

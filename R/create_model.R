@@ -86,7 +86,8 @@ create_model <- function(
             groups = n_groups,
             validation_method = validation_method,
             n_prop = n_prop,
-            n_repeats = n_repeats
+            n_repeats = n_repeats,
+            add_weights = add_weights
           ) %>%
             jsonlite::write_json(file.path(model_dir, "params.json"),
               pretty = TRUE, auto_unbox = TRUE
@@ -166,6 +167,7 @@ create_model <- function(
           tune::fit_resamples(
             resamples = resample,
             metrics = custom_metrics,
+            na_rm = TRUE,
             control = tune::control_resamples(
               save_pred = TRUE, allow_par = F
             )

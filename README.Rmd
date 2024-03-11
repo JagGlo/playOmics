@@ -74,7 +74,7 @@ This dataset is openly available for research and can be downloaded from the [Li
 
 To initiate, let’s load the necessary libraries. Ensure the playOmics and additional libraries are available in your workspace.
 
-```{r setup}
+```{r setup, message=FALSE, warning=FALSE}
 # load playOmics
 library(playOmics)
 ```
@@ -88,7 +88,7 @@ library(readxl)
 
 Next, establish a working directory. It’s an essential step, allowing for streamlined logging and organization. You can achieve this using the setwd() function or the here package.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 here::set_here()
 my_experiment_name <- "final_top5_cv5"
 ```
@@ -128,7 +128,7 @@ As you move forward, you will integrate various omics datasets into your experim
 Omics datasets that will be incorporated in the experiment: 
 
 * clinical data (20 features), 
-* proteome (9734 features), 
+* proteome (175 features), 
 * methylation (20107 features), 
 * miRNA (824 features), 
 * mutation (7967 features), 
@@ -194,7 +194,7 @@ This can be easily obtained with **plot_coverage()** function:
 plot_coverage(BRCA_data)
 ```
 
-For the BRCA data, you'll notice various patterns of data availability, with the largest group (442 subjects) having complete data for six datasets, all except proteome.
+For the BRCA data, you'll notice various patterns of data availability, with the largest group (379 subjects) having complete data.
 
 ### Understanding Your Dataset
 
@@ -348,7 +348,7 @@ data_filtered <-
     filter_name = "auc",
     cutoff_method = "top_n",
     cutoff_treshold = 5,
-    return_ranking_list = FALSE,
+    return_ranking_list = F,
     n_fold = 5,
     n_threads = 5
   )
@@ -357,9 +357,9 @@ rm(data_prepared)
 
 If the parameter "return_ranking_list" is set to TRUE, the function will return a list containing the filtered datasets and the ranking list. If you wish to obtain a ranking among all features (global ranking), you can use it like this:
 
-```{r}
+```{r eval = F}
 all_data_rank <-  
-  lapply(data_filtered, function(x) x$ranking_list) %>% 
+  data_filtered$ranking_list %>% 
   bind_rows() %>%
   arrange(desc(mean_score)) %>%
   top_n(5, mean_score) # to select 5 features among all datasets
@@ -472,7 +472,7 @@ Each model and its associated details are logged within the **create_multiple_mo
 
 The overall models' results can be easily collected by using **read_model_data()** function. The additional parameter `directory` might be passed if the directory differs from the working directory.
 
-```{r}
+```{r eval = F}
 results <- read_model_data(
   experiment_name = my_experiment_name,
   directory = here::here()
@@ -481,7 +481,7 @@ results <- read_model_data(
 
 If, at any point in the analysis, something goes wrong and you do not obtain the complete results, or if you wish to examine the detailed model logs, you can use read_logged_data() to obtain one of the following: "metrics," "model_logs," "model_coef" or "params."
 
-``` r
+```{r eval = F}
 results <- read_logged_data(
   experiment_name = my_experiment_name,
   file_type = "metrics",
@@ -551,6 +551,7 @@ validation_target <-
 
 validation_data_prepared <-
     prepare_data_for_modelling(data = validation_set, target = validation_target)
+```
 
 ```{r eval=FALSE}
 results_GUI(results, target = validation_target)

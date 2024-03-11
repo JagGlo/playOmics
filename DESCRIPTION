@@ -4,7 +4,7 @@ Title: A multi-omics pipeline for biomarker discovery
 Version: 1.0.0
 Author: Jagoda Glowacka-Walas
 Maintainer: Jagoda Glowacka-Walas <jagaaa92@gmail.com>
-Description: This package provides a suite of tools for the comprehensive analysis and visualization 
+Description: This package provides a suite of tools for the analysis and visualization 
     of multi-omics datasets. It facilitates data cleaning, integration, and preprocessing; statistical analysis and modeling; 
     and detailed interpretability of models using SHAP values and interactive visualizations via a Shiny application interface. 
     Key features include streamlined workflow for data input, feature selection, model creation, performance logging, 
@@ -49,6 +49,7 @@ Imports:
     shinyjs,
     shinyWidgets,
     shinydashboardPlus,
+    shinybusy,
     DT,
     plotly,
     jsonlite

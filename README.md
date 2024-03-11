@@ -35,11 +35,34 @@ clinical applications.
 
 # Installation
 
+## Development Version
+
 You can install the development version of playOmics from GitHub with:
 
 ``` r
 remotes::install_github("JagGlo/playOmics")
 ```
+
+## Docker Installation
+
+As an alternative installation method, the
+[playomics_env](https://github.com/JagGlo/playOmics_env) repository
+provides a setup for running playOmics within a Docker container. This
+setup includes testing data and scripts, offering a comprehensive R
+environment for users who prefer containerized solutions.
+
+To get started with playOmics using Docker:
+
+1.  **Installation Requirements:** Ensure you have Docker and Docker
+    Compose installed on your system.
+2.  **Repository Cloning:** Clone the
+    [playomics_env](https://github.com/JagGlo/playOmics_env) repository
+    to your local machine or server.
+3.  **Container Setup:** Follow the instructions within the repository
+    to build and start the Docker container.
+
+This method is recommended for users looking for an easy and consistent
+setup process, enabling a quick start into modelling process.
 
 # Exploring the BRCA Data
 
@@ -61,22 +84,12 @@ and additional libraries are available in your workspace.
 
 ``` r
 # load playOmics
-# library(playOmics)
+library(playOmics)
 ```
 
 ``` r
 # Load the additional required libraries
 library(tidyverse)
-#> ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
-#> ✔ dplyr     1.1.2     ✔ readr     2.1.4
-#> ✔ forcats   1.0.0     ✔ stringr   1.5.0
-#> ✔ ggplot2   3.4.2     ✔ tibble    3.2.1
-#> ✔ lubridate 1.9.2     ✔ tidyr     1.3.0
-#> ✔ purrr     1.0.1     
-#> ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-#> ✖ dplyr::filter() masks stats::filter()
-#> ✖ dplyr::lag()    masks stats::lag()
-#> ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
 library(readxl)
 ```
 
@@ -88,7 +101,6 @@ setwd() function or the here package.
 
 ``` r
 here::set_here()
-#> File .here already exists in C:\Users\jagaa\Documents\playOmics
 my_experiment_name <- "final_top5_cv5"
 ```
 
@@ -155,7 +167,7 @@ insights.
 Omics datasets that will be incorporated in the experiment:
 
 - clinical data (20 features),
-- proteome (9734 features),
+- proteome (175 features),
 - methylation (20107 features),
 - miRNA (824 features),
 - mutation (7967 features),
@@ -164,7 +176,7 @@ Omics datasets that will be incorporated in the experiment:
 
 ``` r
 proteome <-
-  read_delim("TCGA-BRCA/Human__TCGA_BRCA__BI__Proteome__QExact__01_28_2016__BI__Gene__CDAP_iTRAQ_UnsharedLogRatio_r2.cct", na = c("NA", "NA,NA"), show_col_types = F) %>%
+   read_delim("TCGA-BRCA/Human__TCGA_BRCA__MDA__RPPA__MDA_RPPA__01_28_2016__BI__Gene__Firehose_RPPA.cct", na = c("NA", "NA,NA"), show_col_types = F) %>%
   data.table::transpose(keep.names = "ID", make.names = "attrib_name") %>%
   mutate_at(vars(-ID), as.numeric)
 
@@ -174,7 +186,7 @@ methylation <-
   mutate_at(vars(-ID), as.numeric)
 
 miRNA <-
-  read_delim("TCGA-BRCA/Human__TCGA_BRCA__BDGSC__miRNASeq__HS_miR__01_28_2016__BI__Gene__Firehose_RPKM_log2.cct", na = c("NA", "NA,NA") , show_col_types = F) %>%
+  read_delim("TCGA-BRCA/Human__TCGA_BRCA__BDGSC__miRNASeq__HS_miR__01_28_2016__BI__Gene__Firehose_RPKM_log2.cct", na = c("NA", "NA,NA"), show_col_types = F) %>%
   data.table::transpose(keep.names = "ID", make.names = "attrib_name") %>%
   mutate_at(vars(-ID), as.numeric)
 
@@ -212,7 +224,7 @@ BRCA_data <- connect_datasets(clinical_data, proteome, methylation, miRNA, mutat
 BRCA_data %>% summary()
 #>                Length Class      Mode
 #> clinical_data     20  data.frame list
-#> proteome        9734  data.frame list
+#> proteome         176  data.frame list
 #> methylation    20107  data.frame list
 #> miRNA            824  data.frame list
 #> mutation        7967  data.frame list
@@ -245,8 +257,7 @@ plot_coverage(BRCA_data)
 <img src="man/figures/README-unnamed-chunk-9-1.png" width="100%" />
 
 For the BRCA data, you’ll notice various patterns of data availability,
-with the largest group (442 subjects) having complete data for six
-datasets, all except proteome.
+with the largest group (379 subjects) having complete data.
 
 ### Understanding Your Dataset
 
@@ -259,7 +270,7 @@ numeric/character/factor columns):
 data_summary(BRCA_data)
 #>     Dataset.name Number.of.samples Number.of.variables Numeric.columns
 #> 1  clinical_data               987                  20               4
-#> 2       proteome               105                9734            9733
+#> 2       proteome               887                 176             175
 #> 3    methylation               783               20107           20106
 #> 4          miRNA               755                 824             823
 #> 5       mutation               975                7967            7966
@@ -460,6 +471,7 @@ modeling experiment; let’s name them “modelling_set” for now:
 
 ``` r
 modelling_set <- splitted_data$train_data
+rm(splitted_data)
 ```
 
 As a preparation for the modeling process, we will use again the
@@ -482,7 +494,7 @@ each variable to distinguish data.
 
 ``` r
 data_prepared <-
-  prepare_data_for_modelling(data = BRCA_data_splitted$train_data, target = my_target)
+  prepare_data_for_modelling(data = BRCA_data_splitted$train_data, target = my_target, remove_correlated_features = F)
 ```
 
 Also, a test set needs to be prepared so the models can be validated on
@@ -490,7 +502,8 @@ corresponding data:
 
 ``` r
 test_data_prepared <-
-  prepare_data_for_modelling(BRCA_data_splitted$test_data, target = my_target)
+  prepare_data_for_modelling(BRCA_data_splitted$test_data, target = my_target, remove_correlated_features = F)
+rm(BRCA_data_splitted)
 ```
 
 ### Selecting features
@@ -518,10 +531,8 @@ Variables might be selected in three ways:
 
 What’s important, at this level, we are still operating on each dataset
 separately, which allows us to preserve an equal number of slots for all
-data frames.
-
-!!!! install.packages(“mlr3filters”, version=‘0.6.0’) -? due to missing
-values handling
+data frames. This approach ensures you’re working with the most relevant
+features, optimizing the model’s performance and efficiency.
 
 ``` r
 data_filtered <-
@@ -531,13 +542,36 @@ data_filtered <-
     filter_name = "auc",
     cutoff_method = "top_n",
     cutoff_treshold = 5,
+    return_ranking_list = F,
     n_fold = 5,
     n_threads = 5
   )
+rm(data_prepared)
 ```
 
-This approach ensures you’re working with the most relevant features,
-optimizing the model’s performance and efficiency.
+If the parameter “return_ranking_list” is set to TRUE, the function will
+return a list containing the filtered datasets and the ranking list. If
+you wish to obtain a ranking among all features (global ranking), you
+can use it like this:
+
+``` r
+all_data_rank <-  
+  data_filtered$ranking_list %>% 
+  bind_rows() %>%
+  arrange(desc(mean_score)) %>%
+  top_n(5, mean_score) # to select 5 features among all datasets
+
+train_data_top_5 <-
+    data_prepared %>%
+    reduce(full_join, by = c(my_target$id_variable)) %>%
+    select(-my_target$id_variable, -my_target$target_variable, everything()) %>%
+    select(my_target$id_variable, my_target$target_variable, all_data_rank$original_name)
+
+test_data_top_5 <- 
+   test_data_prepared %>%
+    reduce(full_join, by = c(my_target$id_variable)) %>%
+    select(names(train_data_top_5)) # to select the same variables as in train data
+```
 
 ### Modelling
 
@@ -575,27 +609,26 @@ lifesaver since it helps us maximize the data size, making the most of
 every single data point you have.
 
 ``` r
-create_multiple_models(
-  experiment_name = my_experiment_name,
-  train_data = data_filtered,
-  test_data = test_data_prepared,
-  target = my_target,
-  n_max = 3,
-  validate_with_permutation = FALSE,
-  n_perm = NULL,
-  trim_models = TRUE,
-  trim_metric = "train_mcc",
-  trim_threshold = 0.3,
-  # single model settings
-  validation_method = "cv",
-  n_prop = NULL,
-  n_repeats = 5,
-  log_experiment = TRUE,
-  explain = TRUE,
-  # configuration
-  n_cores = 7,
-  directory = here::here()
-)
+my_models <-
+    create_multiple_models(
+      experiment_name = my_experiment_name,
+      train_data = data_filtered,
+      test_data = test_data_prepared,
+      target = my_target,
+      n_max = 3,
+      trim_models = TRUE,
+      trim_metric = "train_mcc",
+      trim_threshold = 0.3,
+      # single model settings
+      validation_method = "cv",
+      n_prop = NULL,
+      n_repeats = 5,
+      log_experiment = TRUE,
+      explain = TRUE,
+      # configuration
+      n_cores = 5,
+      directory = here::here()
+    )
 ```
 
 When you’re running **create_multiple_models()**, you can trim away
@@ -642,7 +675,7 @@ crucial to managing the function’s computational intensity efficiently,
 allowing us to optimize the experiment’s performance without
 compromising the accuracy and reliability of the results obtained.
 
-<img src="man/figures/README-unnamed-chunk-24-1.png" width="100%" />
+<img src="man/figures/README-unnamed-chunk-25-1.png" width="100%" />
 
 ### Logging Models and Details
 
@@ -662,9 +695,23 @@ might be passed if the directory differs from the working directory.
 
 ``` r
 results <- read_model_data(
-  experiment_name = my_experiment_name, 
+  experiment_name = my_experiment_name,
   directory = here::here()
-  )
+)
+```
+
+If, at any point in the analysis, something goes wrong and you do not
+obtain the complete results, or if you wish to examine the detailed
+model logs, you can use read_logged_data() to obtain one of the
+following: “metrics,” “model_logs,” “model_coef” or “params.”
+
+``` r
+results <- read_logged_data(
+  experiment_name = my_experiment_name,
+  file_type = "metrics",
+  directory = here::here()
+  ) %>% 
+  bind_rows()
 ```
 
 The Shiny application has been developed to facilitate user interaction
@@ -768,26 +815,43 @@ alt="Prediction screen" />
 <figcaption aria-hidden="true">Prediction screen</figcaption>
 </figure>
 
-#### Model ensembling
-
 ## Validation
 
+The validation dataset, which remains unused during the model training
+phase, can be utilized to generate predictions on novel data. This
+approach mirrors the practical deployment of the developed models.
+
+The function prepare_data_for_modelling() is designed to ready newly
+acquired data for the modeling process. Subsequently, the Shiny
+application can be initiated through results_GUI(). To engage this
+functionality, activate the “Make prediction” button corresponding to
+the desired model and choose the “Select data from your env” option.
+This action will import the validation dataset into the application,
+facilitating the generation of predictions on new data. Additionally,
+the application offers the feature to dissect specific predictions
+associated with a selected ID, which can be chosen from a provided list.
+
 ``` r
-# validation_target <-
-#   define_target(phenotype_df_name = "clinical_data",
-#               id_variable_name = "ID",
-#               target_variable_name = NULL,
-#               positive_class_name = NULL
-#               )
-#
-# validation_data_prepared <-
-#     prepare_data_for_modelling(data = validation_set, target = validation_target)
+validation_target <-
+  define_target(phenotype_df_name = "clinical_data",
+              id_variable_name = "ID",
+              target_variable_name = NULL,
+              positive_class_name = NULL
+              )
+
+
+validation_data_prepared <-
+    prepare_data_for_modelling(data = validation_set, target = validation_target)
+```
+
+``` r
+results_GUI(results, target = validation_target)
 ```
 
 # Package scheme
 
 <figure>
-<img src="man/shiny_screenshots/playOmics%20scheme-General.drawio.png"
+<img src="man/shiny_screenshots/playOmics_new_scheme.png"
 alt="playOmics scheme" />
 <figcaption aria-hidden="true">playOmics scheme</figcaption>
 </figure>

@@ -9,6 +9,7 @@ create_multiple_models(
   train_data,
   test_data,
   target,
+  n_min = 2,
   n_max = 3,
   trim_models = TRUE,
   trim_metric = "train_mcc",
@@ -18,6 +19,7 @@ create_multiple_models(
   n_repeats = 5,
   log_experiment = TRUE,
   explain = TRUE,
+  add_weights = FALSE,
   n_cores = parallel::detectCores()/4,
   directory = getwd()
 )

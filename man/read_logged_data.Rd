@@ -9,7 +9,7 @@ read_logged_data(experiment_name, file_type = "metrics", directory = getwd())
 \arguments{
 \item{experiment_name}{The name of the experiment.}
 
-\item{file_type}{The type of file to read; either "metrics", "model_logs" or "params". Default is \code{metrics}.}
+\item{file_type}{The type of file to read; either "metrics", "model_logs", "model_coef" or "params". Default is \code{metrics}.}
 
 \item{directory}{The directory where the RDS files are stored. Default is the current working directory (\code{getwd()}).}
 }

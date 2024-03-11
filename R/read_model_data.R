@@ -19,8 +19,8 @@ read_model_data <- function(experiment_name, directory = getwd()) {
   # Read and combine metrics data from RDS files
   results <-
     lapply(list.files(path = paste(directory, experiment_name, sep = "/"), pattern = "*.Rds", full.names = T), function(f) {
-      readRDS(f) %>% 
-        bind_rows() %>% 
+      readRDS(f) %>%
+        bind_rows() %>%
         tibble::add_column("m_vars" = str_extract(f, "\\d{1}-vars"), .after = 1)
     }) %>%
     bind_rows()
@@ -37,7 +37,7 @@ read_model_data <- function(experiment_name, directory = getwd()) {
 #' This function reads data from files stored in a specified directory.
 #'
 #' @param experiment_name The name of the experiment.
-#' @param file_type The type of file to read; either "metrics", "model_logs" or "params". Default is \code{metrics}.
+#' @param file_type The type of file to read; either "metrics", "model_logs", "model_coef" or "params". Default is \code{metrics}.
 #' @param directory The directory where the RDS files are stored. Default is the current working directory (\code{getwd()}).
 #'
 #' @return A data frame containing the combined experiment metrics.
