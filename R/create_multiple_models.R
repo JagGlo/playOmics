@@ -1,20 +1,3 @@
-# Function to safely create a cluster and automatically stop it after use
-autoStopCluster <- function(cl) {
-  stopifnot(inherits(cl, "cluster"))
-  env <- new.env()
-  env$cluster <- cl
-  attr(cl, "gcMe") <- env
-  reg.finalizer(env, function(e) {
-    message("Finalizing cluster ...")
-    message(capture.output(print(e$cluster)))
-    try(parallel::stopCluster(e$cluster), silent = FALSE)
-    closeAllConnections()
-    logger::log_appender(logger::appender_console)
-    message("Finalizing cluster ... done")
-  })
-  cl
-}
-
 # Function to log error message and stop execution if a condition fails
 stopIfConditionFails <- function(condition, message) {
   if (!condition) {
@@ -69,7 +52,8 @@ prepare_test_data <- function(test_data, target) {
 #' @param experiment_name A character string denoting the name of the experiment.
 #' @param train_data A list containing the training data.
 #' @param test_data A list containing the testing data.
-#' @param target A list with at least two elements: 'target_variable' (name of the dependent variable) and 'id_variable' (name of the identifier variable); see more under \link[playOmics]{define_target}.
+#' @param target A list with at least two elements: 'target_variable' (name of the dependent variable) and 'id_variable' (name of the identifier variable); see more under \link[playOmics]{define_target}. 
+#' @param n_max An integer specifying the minimum number of predictor variables to consider in combinations. Default is 2.
 #' @param n_max An integer specifying the maximum number of predictor variables to consider in combinations. Default is 3.
 #' @param n_cores An integer specifying the number of CPU cores to use in parallel processing. Default is one fourth of the available cores.
 #' @param directory A character string specifying the path to the working directory. Default is the current working directory.
@@ -116,6 +100,7 @@ create_multiple_models <- function(experiment_name,
                                    train_data,
                                    test_data,
                                    target,
+                                   n_min = 2,
                                    n_max = 3,
                                    trim_models = TRUE,
                                    trim_metric = "train_mcc",
@@ -158,11 +143,11 @@ create_multiple_models <- function(experiment_name,
   # Prepare variables combinations
   chunks <- list()
 
-  for (i in 2:n_max) {
+  for (i in n_min:n_max) {
     chunks[[i - 1]] <- combn(names(train_data_united)[!(names(train_data_united) %in% c(target$target_variable, target$id_variable))], i, simplify = FALSE)
   }
 
-  names(chunks) <- paste0(2:n_max, "-vars models")
+  names(chunks) <- paste0(n_min:n_max, "-vars models")
 
   experiment_timestamp <- Sys.Date()
 
@@ -191,7 +176,7 @@ create_multiple_models <- function(experiment_name,
   cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
 
   # Create a cluster with the appropriate type
-  cl <- autoStopCluster(parallel::makeCluster(n_cores, type = cluster_type))
+  cl <- parallel::makeCluster(n_cores, type = cluster_type)
 
   if (cluster_type == "PSOCK") {
     parallel::clusterExport(cl = cl, varlist = c("train_data_united", "test_data_united", "target", "directory", "create_model"), envir = environment())
