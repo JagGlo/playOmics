@@ -24,10 +24,10 @@ Depends:
     knitr,
     shiny,
     DALEX,
+    DALEXtra,
     R (>= 2.10)
 Imports: 
     carrier,
-    DALEXtra,
     dplyr,
     factoextra,
     ggplot2,
