@@ -12,6 +12,3 @@
   # Optionally, notify the user
   message("Using 'conflicted' to prefer 'DALEX::explain()' over others.")
 }
-
-# Remember to export `.onAttach` if your package NAMESPACE is managed manually
-export(".onAttach")
