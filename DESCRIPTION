@@ -23,10 +23,10 @@ Depends:
     tidyverse,
     knitr,
     shiny,
+    DALEX,
     R (>= 2.10)
 Imports: 
     carrier,
-    DALEX,
     DALEXtra,
     dplyr,
     factoextra,
