@@ -8,7 +8,6 @@
   # This avoids the package attaching message
   requireNamespace("conflicted", quietly = TRUE)
   conflicted::conflict_prefer("explain", "DALEX")
-
-  # Optionally, notify the user
-  message("Using 'conflicted' to prefer 'DALEX::explain()' over others.")
+  conflicted::conflict_prefer("filter", "dplyr")
+  conflicted::conflict_prefer("lag", "dplyr")
 }
