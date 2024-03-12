@@ -313,7 +313,7 @@ create_model <- function(
         if (explain) {
           # explain prediction
           explainer_lr <-
-            DALEXtra::explain_tidymodels(
+            explain_tidymodels(
               fitted_model,
               data = train_data,
               y = target$target_variable,
