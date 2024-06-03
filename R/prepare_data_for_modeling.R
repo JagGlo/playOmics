@@ -51,6 +51,8 @@ prepare_data_for_modelling <- function(data, target, remove_correlated_features 
       if (length(non_numeric_vars) > 0) {
         df <-
           df %>%
+          # all input variables for dummy steps must be factors
+          mutate_if(is.logical, as.factor) %>%
           # Set up a recipe for one-hot encoding
           recipes::recipe() %>%
           recipes::update_role(everything()) %>%
