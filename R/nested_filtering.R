@@ -49,6 +49,8 @@ select_features <- function(data, ranking, target, cutoff_method, cutoff_treshol
       na.omit(ranking[1:ceiling(nrow(ranking) * cutoff_treshold / 100), 1])
     } else if (cutoff_method == "threshold") {
       na.omit(ranking[ranking$mean_score > cutoff_treshold, 1])
+     } else if (cutoff_method == "outliers") {
+      na.omit(ranking[ranking$mean_score > quantile(ranking$mean_score, 0.75) + 1.5 * IQR(ranking$mean_score), 1])
     } else {
       stop("Cutoff method not found!")
     }
