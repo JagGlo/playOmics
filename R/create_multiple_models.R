@@ -9,21 +9,27 @@ stopIfConditionFails <- function(condition, message) {
 # prepare test data
 prepare_test_data <- function(test_data, target) {
   # Attempt the initial method to create test_data_united
-  result <- tryCatch(
-    {
-      test_data %>%
-        reduce(full_join, by = c(target$id_variable)) %>%
-        select(-target$id_variable, -target$target_variable, everything())
-    },
-    # If there's an error with the initial method, this alternative method will be used
-    error = function(e) {
-      test_data %>%
-        reduce(full_join, by = c(target$target_variable, target$id_variable)) %>%
-        select(-target$id_variable, -target$target_variable, everything())
-    }
-  )
+  if(!is.null(test_data)){
+    result <- tryCatch(
+      {
+        test_data %>%
+          reduce(full_join, by = c(target$id_variable)) %>%
+          select(-target$id_variable, -target$target_variable, everything())
+      },
+      # If there's an error with the initial method, this alternative method will be used
+      error = function(e) {
+        test_data %>%
+          reduce(full_join, by = c(target$target_variable, target$id_variable)) %>%
+          select(-target$id_variable, -target$target_variable, everything())
+      }
+    )
 
-  return(result)
+    return(result)
+  } else {
+    logger::log_info("No test data found; skipping.")
+  }
+
+
 }
 
 #' Create multiple models for given datasets
@@ -52,7 +58,7 @@ prepare_test_data <- function(test_data, target) {
 #' @param experiment_name A character string denoting the name of the experiment.
 #' @param train_data A list containing the training data.
 #' @param test_data A list containing the testing data.
-#' @param target A list with at least two elements: 'target_variable' (name of the dependent variable) and 'id_variable' (name of the identifier variable); see more under \link[playOmics]{define_target}. 
+#' @param target A list with at least two elements: 'target_variable' (name of the dependent variable) and 'id_variable' (name of the identifier variable); see more under \link[playOmics]{define_target}.
 #' @param n_max An integer specifying the minimum number of predictor variables to consider in combinations. Default is 2.
 #' @param n_max An integer specifying the maximum number of predictor variables to consider in combinations. Default is 3.
 #' @param n_cores An integer specifying the number of CPU cores to use in parallel processing. Default is one fourth of the available cores.
@@ -205,11 +211,11 @@ create_multiple_models <- function(experiment_name,
           train_data <-
             train_data_united[, c(single_model, target$target_variable)] %>%
             na.omit()
-
-          test_data <-
-            test_data_united[, c(single_model, target$target_variable)] %>%
-            na.omit()
-
+          if(!is.null(test_data)){
+            test_data <-
+              test_data_united[, c(single_model, target$target_variable)] %>%
+              na.omit()
+          }
           model_result <-
             create_model(train_data,
                          test_data,
@@ -245,7 +251,7 @@ create_multiple_models <- function(experiment_name,
           parallel::parLapply(cl, chunks[[n]], function(x) {
             any(
               as.logical(
-               lapply(extracted_elements, function(y) {
+                lapply(extracted_elements, function(y) {
                   all(y %in% x)
                 })
               )
