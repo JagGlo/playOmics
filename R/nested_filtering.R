@@ -1,7 +1,12 @@
 rank_features <- function(data, target, filter_name, n_threads = 1) {
-
+  
+  if(is.data.frame(data)){
+    data <- list(data = data)
+  }
+  
   ranked_features <-
     sapply(names(data), function(dataframe) {
+
       mydata <- data[[dataframe]] %>% select(-target$id_variable)
       names_dictionary <-
         data.frame(
@@ -9,23 +14,23 @@ rank_features <- function(data, target, filter_name, n_threads = 1) {
           valid_name = make.names(colnames(mydata))
         )
       colnames(mydata) <- make.names(colnames(mydata))
-
+      
       task <- mlr3::as_task_classif(mydata, target = target$target_variable, positive = target$positive_class)
       filter <- mlr3filters::flt(filter_name)
-
+      
       # set threads for all filters which support it
       mlr3::set_threads(filter, n_threads)
-
+      
       ranked_features <- data.table::as.data.table(filter$calculate(task)) %>% left_join(names_dictionary, by = c("feature" = "valid_name"))
     }, USE.NAMES = TRUE, simplify = F)
-
+  
   ranked_features <-
     lapply(1:length(ranked_features), function(i) {
       iteration_name <- names(ranked_features[i])
       ranked_features[[i]] %>% add_column(id = iteration_name)
     }) %>%
     bind_rows()
-
+  
   ranking <-
     ranked_features %>%
     group_by(original_name) %>%
@@ -34,10 +39,51 @@ rank_features <- function(data, target, filter_name, n_threads = 1) {
       variance = var(score, na.rm = T)
     ) %>%
     arrange(desc(mean_score))
-
+  
   return(list(ranked_features = spread(ranked_features, id, score), ranking = ranking))
 }
 
+rank_features_emb <- function(data, target, filter_name, n_threads = 1) {
+    
+    ranked_features <-
+      sapply(names(data), function(dataframe) {
+        
+        mydata <- data[[dataframe]] %>% select(-target$id_variable)
+        names_dictionary <-
+          data.frame(
+            original_name = names(mydata),
+            valid_name = make.names(colnames(mydata))
+          )
+        colnames(mydata) <- make.names(colnames(mydata))
+        
+        task <- mlr3::as_task_classif(mydata, target = target$target_variable, positive = target$positive_class)
+        learner = mlr3::lrn("classif.rpart")
+        filter <- mlr3filters::flt(filter_name, learner = learner)
+        
+        # set threads for all filters which support it
+        mlr3::set_threads(filter, n_threads)
+        
+        ranked_features <- data.table::as.data.table(filter$calculate(task)) %>% left_join(names_dictionary, by = c("feature" = "valid_name"))
+      }, USE.NAMES = TRUE, simplify = F)
+    
+    ranked_features <-
+      lapply(1:length(ranked_features), function(i) {
+        iteration_name <- names(ranked_features[i])
+        ranked_features[[i]] %>% add_column(id = iteration_name)
+      }) %>%
+      bind_rows()
+    
+    ranking <-
+      ranked_features %>%
+      group_by(original_name) %>%
+      summarise(
+        mean_score = mean(score, na.rm = T),
+        variance = var(score, na.rm = T)
+      ) %>%
+      arrange(desc(mean_score))
+    
+    return(list(ranked_features = spread(ranked_features, id, score), ranking = ranking))
+  }
 
 select_features <- function(data, ranking, target, cutoff_method, cutoff_treshold) {
 
@@ -49,13 +95,11 @@ select_features <- function(data, ranking, target, cutoff_method, cutoff_treshol
       na.omit(ranking[1:ceiling(nrow(ranking) * cutoff_treshold / 100), 1])
     } else if (cutoff_method == "threshold") {
       na.omit(ranking[ranking$mean_score > cutoff_treshold, 1])
-     } else if (cutoff_method == "outliers") {
-      na.omit(ranking[ranking$mean_score > quantile(ranking$mean_score, 0.75) + 1.5 * IQR(ranking$mean_score), 1])
     } else {
       stop("Cutoff method not found!")
     }
-
-  filtered_data <- data[, c(target$id_variable, target$target_variable, pull(selected_features))]
+  
+  filtered_data <- as.data.frame(data)[, c(target$id_variable, target$target_variable, pull(selected_features))]
 }
 
 #' Perform nested filtering on multiple datasets
@@ -92,7 +136,7 @@ select_features <- function(data, ranking, target, cutoff_method, cutoff_treshol
 #'    * "threshold".
 #' Default is "top_n".
 #' @param cutoff_treshold Depending of a cutoff method, a number of features to be selected (for "top_n" method),
-#'percentage of variables to be selected (for "percentage" method), a threshold above which features are selected (for "percentage" method). Default is 1.
+#'percentage of variables to be selected (for "percentage" method), a threshold above which features are selected (for "threshold" method). Default is 1.
 #' @param return_ranking_list A logical value specifying whether to return the
 #' ranking list. Default is FALSE. If set to TRUE, the function will return a list containing the filtered datasets and the ranking list.
 #' @param n_fold An integer value specifying the number of folds for
@@ -112,57 +156,67 @@ select_features <- function(data, ranking, target, cutoff_method, cutoff_treshol
 
 nested_filtering <- function(data, target, filter_name = "auc", cutoff_method = "top_n", cutoff_treshold = 10,
                              return_ranking_list = F, n_fold = 5, n_threads = 1) {
-
+  
   # Extract target data from the input data
   target_data <-
     data[[target$phenotype_df]] %>%
     select(target$id_variable, target$target_variable)
-ranking <-
-  sapply(names(data), function(dataframe) {
-    logger::log_info("Ranking {dataframe} data")
-
-    # For each element in the input data, join with the target data and remove missing target values
-    if (dataframe == target$phenotype_df) { # Don't change the phenotype df
-      data[[dataframe]]
-    } else {
+  ranking <-
+    sapply(names(data), function(dataframe) {
+      logger::log_info("Ranking {dataframe} data")
+      
+      # For each element in the input data, join with the target data and remove missing target values
+      if (dataframe == target$phenotype_df) { # Don't change the phenotype df
+        data[[dataframe]]
+      } else {
+        data[[dataframe]] <-
+          data[[dataframe]] %>%
+          left_join(target_data, by = target$id_variable) %>%
+          filter(!is.na(!!rlang::sym(target$target_variable)))
+      }
+      
+      # Remove missing target values
       data[[dataframe]] <-
         data[[dataframe]] %>%
-        left_join(target_data, by = target$id_variable) %>%
         filter(!is.na(!!rlang::sym(target$target_variable)))
-    }
-
-    # Remove missing target values
-    data[[dataframe]] <-
-      data[[dataframe]] %>%
-      filter(!is.na(!!rlang::sym(target$target_variable)))
-
-    # Perform stratified cross-validation using vfold_cv from the rsample package
-    resample <-
-      rsample::vfold_cv(data[[dataframe]],
-                        v = n_fold,
-                        strata = target$target_variable
-      )
-
-    # Create a list to store the training data for each fold
-    training_data <-
-      lapply(1:n_fold, function(i) resample$splits[[i]]$data[resample$splits[[i]]$in_id, ])
-
-    names(training_data) <- paste0("split", 1:n_fold)
-
-    # Rank the features using the rank_features function
-    ranked_features <-
-      rank_features(training_data, target, filter_name = filter_name, n_threads = n_threads)
-
-    # Select the top features based on the ranking using the select_features function
-    ranked_features$selected_features <-
-      select_features(data[[dataframe]], ranked_features$ranking, target, cutoff_method = cutoff_method, cutoff_treshold = cutoff_treshold)
-
-    return(ranked_features)
-  }, USE.NAMES = TRUE, simplify = F)
-
+      
+      # Perform stratified cross-validation using vfold_cv from the rsample package
+      if(!is.null(n_fold)){
+        resample <-
+          rsample::vfold_cv(data[[dataframe]],
+                            v = n_fold,
+                            strata = target$target_variable
+          )
+        
+        # Create a list to store the training data for each fold
+        training_data <-
+          lapply(1:n_fold, function(i) resample$splits[[i]]$data[resample$splits[[i]]$in_id, ])
+        
+        names(training_data) <- paste0("split", 1:n_fold)
+        
+        # Rank the features using the rank_features function
+        ranked_features <-
+          rank_features(training_data, target, filter_name = filter_name, n_threads = n_threads)
+        
+        # Select the top features based on the ranking using the select_features function
+        ranked_features$selected_features <-
+          select_features(data[[dataframe]], ranked_features$ranking, target, cutoff_method = cutoff_method, cutoff_treshold = cutoff_treshold)
+        
+      } else {
+        ranked_features <-
+          rank_features(data[[dataframe]], target, filter_name = filter_name, n_threads = n_threads)
+        
+        # Select the top features based on the ranking using the select_features function
+        ranked_features$selected_features <-
+          select_features(data[[dataframe]], ranked_features$ranking, target, cutoff_method = cutoff_method, cutoff_treshold = cutoff_treshold)
+      }
+      
+      return(ranked_features)
+    }, USE.NAMES = TRUE, simplify = F)
+  
   filtered_data <- lapply(ranking, function(x) x$selected_features)
   ranking_list <- lapply(ranking, function(x) x$ranking)
-
+  
   if (return_ranking_list) {
     return(list(filtered_data = filtered_data, ranking_list = ranking_list))
   } else {
