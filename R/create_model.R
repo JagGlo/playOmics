@@ -8,7 +8,8 @@
 #' @param test_data A dataframe containing the test dataset.
 #' @param target A named list with "id_variable" and "target_variable" specifying the ID and target variable names.
 #' @param validation_method A character string specifying the validation method to be used; either "subsampling" or "cv" (default: "cv").
-#' @param n_prop A numeric value representing the proportion of data used for each resample in the subsampling process (default: 2/3 for subsampling).
+#' @param n_fold A numeric value representing number of fold for k-fold cross-validation (default: 5).
+#' @param n_prop A numeric value representing the proportion of data used for each resample in the subsampling process (e.g. 2/3 for subsampling).
 #' @param n_repeats A numeric value specifying the number of times to repeat the validation (default: 5).
 #' @param log_experiment A logical value indicating whether to log the experiment details and results. Default is TRUE.
 #' @param explain A logical value indicating whether to create model's explainer using DALEX (default: TRUE).
@@ -22,7 +23,11 @@
 
 create_model <- function(
     train_data, test_data, target,
-    validation_method = "cv", n_prop = 2 / 3, n_repeats = 5,
+    validation_method = "cv",
+    n_fold = 5,
+    n_prop = 2 / 3,
+    model_type = "LR",
+    n_repeats = 5,
     log_experiment = TRUE,
     explain = TRUE,
     add_weights = FALSE,
@@ -90,7 +95,7 @@ create_model <- function(
             add_weights = add_weights
           ) %>%
             jsonlite::write_json(file.path(model_dir, "params.json"),
-              pretty = TRUE, auto_unbox = TRUE
+                                 pretty = TRUE, auto_unbox = TRUE
             )
         }
 
@@ -115,24 +120,27 @@ create_model <- function(
           recipes::update_role(recipes::has_role(NA), new_role = "predictor")
 
         # Model specification
+        if(model_type == "LR"){
         model_spec <-
           parsnip::logistic_reg() %>% # model type
           parsnip::set_engine(engine = "glm") %>% # model engine
           parsnip::set_mode("classification") # model mode
+        }
 
         # Validation
         if (validation_method == "subsampling") {
           resample <-
             rsample::mc_cv(train_data,
-              prop = n_prop,
-              times = n_repeats,
-              strata = target$target_variable
+                           prop = n_prop,
+                           times = n_repeats,
+                           strata = target$target_variable
             )
         } else if (validation_method == "cv") {
           resample <-
             rsample::vfold_cv(train_data,
-              v = n_repeats,
-              strata = target$target_variable
+                              v = n_fold,
+                              repeats = n_repeats,
+                              strata = target$target_variable
             )
         }
 
@@ -189,7 +197,7 @@ create_model <- function(
 
         conf_matrix <-
           model_res %>%
-          tune::collect_predictions() %>%
+          tune::collect_predictions(summarize = T) %>%
           yardstick::conf_mat(truth = !!rlang::sym(target$target_variable), estimate = .pred_class) %>%
           .$table %>%
           reshape2::melt() %>%
@@ -200,7 +208,17 @@ create_model <- function(
           select(-Prediction, -Truth, -Metric) %>%
           pivot_wider(names_from = Variable_Name, values_from = value)
 
-        train_results <- bind_cols(n_groups, train_results, conf_matrix)
+        ci <-
+          model_res |>
+          tune::collect_predictions(summarize = T)  |>
+          summarise(sum = sum(.pred_class == !!rlang::sym(target$target_variable)), n = n()) |>
+          mutate(
+            pp = sum/n,
+            ci_lower = binom::binom.bayes(sum, n, conf.level = 0.95, type = "central")$lower,
+            ci_high = binom::binom.bayes(sum, n, conf.level = 0.95, type = "central")$upper) %>%
+          select(-sum, -n)
+
+        train_results <- bind_cols(n_groups, train_results, conf_matrix, ci)
 
         # fit model on entire training data
         fitted_model <- fit(model_wflow, train_data)
@@ -210,17 +228,24 @@ create_model <- function(
           broom::tidy(fitted_model) %>%
             split(., .$term) %>%
             jsonlite::write_json(file.path(model_dir, "model_coef.json"),
-              pretty = TRUE, auto_unbox = TRUE
+                                 pretty = TRUE, auto_unbox = TRUE
+            )
+
+          #log predictions on training data
+          fitted_model %>%
+            parsnip::augment(new_data = train_data) %>%
+            saveRDS(
+              file.path(model_dir, "predictions_training.Rds")
             )
         }
 
-        if (nrow(test_data) > 0) {
+        if (!is.null(test_data)) {
           ## get predictions
           test_results <-
             predict(fitted_model, new_data = test_data) %>%
             bind_cols(predict(fitted_model, new_data = test_data, type = "prob")) %>%
             bind_cols(test_data %>%
-              select(target$target_variable))
+                        select(target$target_variable))
 
           custom_metrics <-
             yardstick::metric_set(
@@ -237,15 +262,15 @@ create_model <- function(
 
           test_metrics <-
             custom_metrics(test_results,
-              truth = !!target$target_variable,
-              estimate = .pred_class,
-              na_rm = T
+                           truth = !!target$target_variable,
+                           estimate = .pred_class,
+                           na_rm = T
             ) %>%
             bind_rows(
               yardstick::roc_auc(test_results,
-                truth = !!target$target_variable,
-                !!paste0(".pred_", target$positive_class),
-                na_rm = T
+                                 truth = !!target$target_variable,
+                                 !!paste0(".pred_", target$positive_class),
+                                 na_rm = T
               )
             ) %>%
             mutate(`.metric` = paste0("test_", `.metric`)) %>%
@@ -295,6 +320,11 @@ create_model <- function(
             pretty = TRUE, auto_unbox = TRUE
           )
 
+          # log predictions on test data
+            saveRDS(
+              test_results, file.path(model_dir, "predictions_test.Rds")
+            )
+
           # save model
           saveRDS(
             carrier::crate(
@@ -341,7 +371,6 @@ create_model <- function(
 
         logger::log_info("Model '{model_name}' ended")
 
-
         # return metrics
         results
       },
@@ -353,6 +382,7 @@ create_model <- function(
         return(tibble(model_id = model_id))
       }
     )
+
   logger::log_appender(logger::appender_console)
   return(results)
 }

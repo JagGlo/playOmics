@@ -1,7 +1,7 @@
 Package: playOmics
 Type: Package
 Title: A multi-omics pipeline for biomarker discovery
-Version: 1.0.0
+Version: 1.0.1
 Author: Jagoda Glowacka-Walas
 Maintainer: Jagoda Glowacka-Walas <jagaaa92@gmail.com>
 Description: This package provides a suite of tools for the analysis and visualization 
@@ -52,7 +52,6 @@ Imports:
     shinybusy,
     DT,
     plotly,
-    jsonlite,
-    conflicted
+    jsonlite
 Config/testthat/edition: 3
 URL: https://github.com/JagGlo/playOmics

@@ -35,7 +35,7 @@
 #' prepared_data <- prepare_data_for_modelling(data, target)
 #' }
 # Define a function that prepares data for modeling
-prepare_data_for_modelling <- function(data, target, remove_correlated_features = FALSE) {
+prepare_data_for_modelling <- function(data, target, remove_correlated_features = FALSE, normalize_data = FALSE) {
   data <-
     sapply(names(data), function(dataframe) {
       logger::log_info("Preparing {dataframe} dataframe")
@@ -82,6 +82,23 @@ prepare_data_for_modelling <- function(data, target, remove_correlated_features 
         logger::log_info("Removed highly correlated predictors")
       }
 
+      # Remove highly correlated predictors
+      if (normalize_data){
+        df <-
+          df %>%
+          # Set up a recipe for one-hot encoding
+          recipes::recipe() %>%
+          recipes::update_role(everything()) %>%
+          # recipes::update_role(target$target_variable, new_role = "outcome") %>%
+          recipes::update_role(target$id_variable, new_role = "id variable") %>%
+          # Remove highly correlated predictors
+          recipes::step_normalize(recipes::all_predictors()) %>%
+          recipes::prep() %>%
+          # Apply the recipe to the data
+          recipes::bake(df)
+        logger::log_info("Removed highly correlated predictors")
+      }
+
       # Convert ID variable to a character
       df <- df %>% mutate(!!target$id_variable := as.character(!!sym(target$id_variable)))
       # Convert target variable to a factor
@@ -112,4 +129,7 @@ prepare_data_for_modelling <- function(data, target, remove_correlated_features 
                })
       setNames(df, col_names)
     }, simplify = FALSE, USE.NAMES = TRUE)
+
+  data %>%
+    reduce(full_join, by = c(my_target$id_variable))
 }

@@ -70,3 +70,34 @@ read_logged_data <- function(experiment_name, file_type = "metrics", directory =
       })
     })
 }
+
+read_logged_predictions <- function(experiment_name, prediction_type = "test", directory = getwd()) {
+  # Read and combine metrics data from RDS files
+  model_folders <- list.dirs(path = paste(directory, experiment_name, sep = "/"), full.names = T)[-1]
+
+  file_type <-
+  if(prediction_type == "test"){
+      "predictions_test"
+    } else if(prediction_type == "train"){
+      "predictions_training"
+    } else {
+      logger::log_error("unsupport file type")
+    }
+
+  results <-
+    lapply(model_folders, function(dir) {
+      file_path <- paste0(dir, "/", file_type, ".Rds")
+      readRDS(file_path) %>%
+        mutate(dir = dir,
+               ID = 1:nrow(.))
+    }) %>%
+    bind_rows()
+
+  if (nrow(results) == 0) {
+    stop(paste("No metrics data found in the specified directory. Please verify if the model data has been logged to following directory:", paste(directory, experiment_name, sep = "/")))
+  }
+
+  return(results)
+}
+
+
