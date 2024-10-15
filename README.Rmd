@@ -347,9 +347,9 @@ data_filtered <-
     target = my_target,
     filter_name = "auc",
     cutoff_method = "top_n",
-    cutoff_treshold = 5,
+    cutoff_treshold = 2,
     return_ranking_list = F,
-    n_fold = 5,
+    n_fold = NULL,
     n_threads = 5
   )
 rm(data_prepared)
@@ -376,6 +376,12 @@ test_data_top_5 <-
     select(names(train_data_top_5)) # to select the same variables as in train data
 ```
 
+### Feature selection method consideration
+
+To support you in making an informed decision about optimal feature selection strategy for your data, we’ve prepared a notebook that is designed to fit the playOmics data structure. This notebook allows you to experiment with various feature selection methods and evaluate which approach works best for your analysis. You can find it in the playomics_env GitHub repository, where it is ready to be used within the dockerized environment: [FS_diagnostic_plots.Rmd](https://github.com/JagGlo/playOmics_env/FS_diagnostic_plots.Rmd)
+
+It includes bunch of filter methods provided by the mlr3filters package ( <https://mlr3filters.mlr-org.com/>), moreover, it also supports two embedded methods: Lasso and Random Forest (RF). This setup gives you flexibility in testing different feature selection strategies, helping you identify the optimal approach for your specific dataset and problem.
+
 ### Modelling
 
 The **create_multiple_models()** function is a comprehensive tool to build multiple machine learning models using varying combinations of predictor variables to discover which yields the best results. 
@@ -397,7 +403,7 @@ my_models <-
 	  train_data = data_filtered,
 	  test_data = test_data_prepared,
 	  target = my_target,
-	  n_max = 3,
+	  n_max = 2,
 	  trim_models = TRUE,
 	  trim_metric = "train_mcc",
 	  trim_threshold = 0.3,
@@ -416,6 +422,7 @@ my_models <-
 When you're running **create_multiple_models()**, you can trim away models that aren't up to the mark. By setting `trim_models` to TRUE, you're instructing the function to be watchful and eliminate models that don't meet a certain standard. This "standard" or "benchmark" is defined by you through the `trim_metric` and `trim_threshold` parameters. For instance, with the default settings, if a model's performance (measured using the Matthews Correlation Coefficient on the training data) is below 0.3, it gets deleted. This trimming process ensures you're left with the best-performing models, making your analysis more efficient and insightful, especially when handling complex datasets.
 
 Lastly, for those who value robustness in their models, the function offers an option to validate the significance of your results using permutation tests. By turning on the `validate_with_permutation` parameter and specifying the number of permutations, the function will shuffle your data to ascertain the models' significance.
+
 
 ### Performance
 
@@ -497,6 +504,24 @@ results %>%
   filter(!is.na(train_mcc), test_n_lobular > 10) %>%
   results_GUI(target = my_target)
 ```
+
+
+### Ensembling
+
+```{r}
+predictions <- read_logged_predictions(
+  experiment_name = my_experiment_name,
+  prediction_type = "test",
+  directory = here::here()
+) %>% 
+  left_join(
+    results %>% 
+      transmute(dir = model_dir, model_name),
+    by = "dir"
+  ) %>% 
+  select(-dir)
+```
+
 
 ![GUI overview](man/shiny_screenshots/GUI.png)
 

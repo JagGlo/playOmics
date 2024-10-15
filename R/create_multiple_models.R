@@ -216,6 +216,7 @@ create_multiple_models <- function(experiment_name,
               test_data_united[, c(single_model, target$target_variable)] %>%
               na.omit()
           }
+
           model_result <-
             create_model(train_data,
                          test_data,
@@ -268,6 +269,7 @@ create_multiple_models <- function(experiment_name,
 
   parallel::stopCluster(cl)
   closeAllConnections()
+  gc()
 
   logger::log_info("Modelling experiment ended")
 

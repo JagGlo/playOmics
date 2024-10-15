@@ -26,6 +26,7 @@ create_model <- function(
     validation_method = "cv",
     n_fold = 5,
     n_prop = 2 / 3,
+    model_type = "LR",
     n_repeats = 5,
     log_experiment = TRUE,
     explain = TRUE,
@@ -119,10 +120,12 @@ create_model <- function(
           recipes::update_role(recipes::has_role(NA), new_role = "predictor")
 
         # Model specification
+        if(model_type == "LR"){
         model_spec <-
           parsnip::logistic_reg() %>% # model type
           parsnip::set_engine(engine = "glm") %>% # model engine
           parsnip::set_mode("classification") # model mode
+        }
 
         # Validation
         if (validation_method == "subsampling") {
@@ -227,6 +230,13 @@ create_model <- function(
             jsonlite::write_json(file.path(model_dir, "model_coef.json"),
                                  pretty = TRUE, auto_unbox = TRUE
             )
+
+          #log predictions on training data
+          fitted_model %>%
+            parsnip::augment(new_data = train_data) %>%
+            saveRDS(
+              file.path(model_dir, "predictions_training.Rds")
+            )
         }
 
         if (!is.null(test_data)) {
@@ -309,6 +319,11 @@ create_model <- function(
             file.path(model_dir, "metrics.json"),
             pretty = TRUE, auto_unbox = TRUE
           )
+
+          # log predictions on test data
+            saveRDS(
+              test_results, file.path(model_dir, "predictions_test.Rds")
+            )
 
           # save model
           saveRDS(
