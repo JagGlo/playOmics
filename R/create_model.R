@@ -175,7 +175,6 @@ create_model <- function(
           tune::fit_resamples(
             resamples = resample,
             metrics = custom_metrics,
-            na_rm = TRUE,
             control = tune::control_resamples(
               save_pred = TRUE, allow_par = F
             )
@@ -260,6 +259,12 @@ create_model <- function(
               yardstick::f_meas
             )
 
+          predicted_as_positive <- 
+            if(!is.null(target$positive_class)){
+              target$positive_class
+            } else {
+              levels(test_data[,target$target_variable])[1]
+            }
           test_metrics <-
             custom_metrics(test_results,
                            truth = !!target$target_variable,
@@ -269,7 +274,7 @@ create_model <- function(
             bind_rows(
               yardstick::roc_auc(test_results,
                                  truth = !!target$target_variable,
-                                 !!paste0(".pred_", target$positive_class),
+                                 !!paste0(".pred_", predicted_as_positive),
                                  na_rm = T
               )
             ) %>%

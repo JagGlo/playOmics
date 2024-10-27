@@ -79,6 +79,28 @@ rank_and_select_features <- function(data, target, filter_name = "auc", cutoff_m
     # Initialize filtered_data and ranking_list
     filtered_data <- list()
     ranking_list <- list()
+    
+    #Extract the dataset assignment from the column names
+    dataset_assignments <- colnames(data) %>%
+      str_extract_all("\\[.*?\\]") %>%
+      unlist() %>%
+      str_replace_all("[\\[\\]]", "")
+
+    # Create a named list where each element is a dataframe for one dataset
+    split_data <- map(unique(dataset_assignments), function(dataset) {
+      selected_columns <- grep(paste0("\\[", dataset, "\\]"), colnames(data), value = TRUE)
+      data %>%
+        select(ID, all_of(selected_columns))
+    })
+
+    # Name each element of the list with the dataset assignment
+    names(split_data) <- unique(dataset_assignments)
+    
+    split_data[[target$phenotype_df]] <- data %>% select(my_target$id_variable, my_target$target_variable)
+    
+    data <- split_data
+    
+    # Perform ranking
     for(dataframe in names(data)){
       logger::log_info("Ranking {dataframe} data")
       # For each dataframe, process as before
@@ -93,7 +115,7 @@ rank_and_select_features <- function(data, target, filter_name = "auc", cutoff_m
       # Perform stratified cross-validation
       if(!is.null(n_fold)){
         resample <- rsample::vfold_cv(data[[dataframe]], v = n_fold, strata = target$target_variable)
-        training_data <- lapply(1:n_fold, function(i) analysis(resample$splits[[i]]))
+        training_data <- lapply(1:n_fold, function(i)resample$splits[[i]]$data[resample$splits[[i]]$in_id, ])
         names(training_data) <- paste0("split", 1:n_fold)
         # Rank features
         ranked_features <- rank_features(training_data, target, filter_name = filter_name, n_threads = n_threads)
@@ -106,43 +128,31 @@ rank_and_select_features <- function(data, target, filter_name = "auc", cutoff_m
       filtered_data[[dataframe]] <- ranked_features$selected_features
       ranking_list[[dataframe]] <- ranked_features$ranking
     }
+    
+    filtered_data <-
+      c(filtered_data, data[target$phenotype_df]) %>%
+      reduce(full_join, by = c(target$target_variable, target$id_variable)) %>%
+      select(-target$id_variable, -target$target_variable, everything())
+    
     if (return_ranking_list) {
       return(list(filtered_data = filtered_data, ranking_list = ranking_list))
     } else {
       return(filtered_data)
     }
-  } else {
-    # Combined case
-    # Extract target data
-    target_data <- data[[target$phenotype_df]] %>% select(all_of(c(target$id_variable, target$target_variable)))
-    # Create list of dataframes with renamed variables
-    df_list <- lapply(names(data), function(df_name) {
-      df <- data[[df_name]]
-      vars <- setdiff(names(df), target$id_variable)
-      # Exclude target variable if present
-      vars <- setdiff(vars, target$target_variable)
-      # Rename variables
-      df_renamed <- df %>% select(all_of(c(target$id_variable, vars))) %>% rename_at(vars, ~paste0(df_name, "_", .))
-      return(df_renamed)
-    })
-    names(df_list) <- names(data)
-    # Merge dataframes
-    combined_data <- Reduce(function(x, y) left_join(x, y, by = target$id_variable), df_list)
-    # Filter out rows with missing target variable
-    combined_data <- combined_data %>% filter(!is.na(!!rlang::sym(target$target_variable)))
+  } else if (selection_type == "combined"){
     # Perform stratified cross-validation
     if(!is.null(n_fold)){
-      resample <- rsample::vfold_cv(combined_data, v = n_fold, strata = target$target_variable)
-      training_data <- lapply(1:n_fold, function(i) analysis(resample$splits[[i]]))
+      resample <- rsample::vfold_cv(data, v = n_fold, strata = target$target_variable)
+      training_data <- lapply(1:n_fold, function(i) resample$splits[[i]]$data[resample$splits[[i]]$in_id, ])
       names(training_data) <- paste0("split", 1:n_fold)
       # Rank features
       ranked_features <- rank_features(training_data, target, filter_name = filter_name, n_threads = n_threads)
     } else {
       # Perform one time feature selection
-      ranked_features <- rank_features(combined_data, target, filter_name = filter_name, n_threads = n_threads)
+      ranked_features <- rank_features(data, target, filter_name = filter_name, n_threads = n_threads)
     }
     # Select features
-    ranked_features$selected_features <- select_features(combined_data, ranked_features$ranking, target, cutoff_method = cutoff_method, cutoff_treshold = cutoff_treshold)
+    ranked_features$selected_features <- select_features(data, ranked_features$ranking, target, cutoff_method = cutoff_method, cutoff_treshold = cutoff_treshold)
     # Return the filtered data
     filtered_data <- ranked_features$selected_features
     if (return_ranking_list) {
@@ -150,5 +160,8 @@ rank_and_select_features <- function(data, target, filter_name = "auc", cutoff_m
     } else {
       return(filtered_data)
     }
+  } else {
+    stop("Selection method not found!")
   }
+  
 }

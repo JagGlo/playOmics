@@ -133,15 +133,15 @@ create_multiple_models <- function(experiment_name,
   logger::log_info(sprintf("Experiment %s created", experiment_name))
 
   # prepare train data
-  train_data_united <-
-    train_data %>%
-    reduce(full_join, by = c(target$target_variable, target$id_variable)) %>%
-    select(-target$id_variable, -target$target_variable, everything())
+  # train_data_united <-
+  #   train_data %>%
+  #   reduce(full_join, by = c(target$target_variable, target$id_variable)) %>%
+  #   select(-target$id_variable, -target$target_variable, everything())
 
-  logger::log_info("Number of features in the final set: {ncol(train_data_united)-2} features.")
+  logger::log_info("Number of features in the final set: {ncol(train_data)-2} features.")
 
   # prepare test data
-  test_data_united <- prepare_test_data(test_data, target)
+  # test_data_united <- prepare_test_data(test_data, target)
 
   # Ensure n_max is at least 2
   stopIfConditionFails(n_max >= 2, "n_max can't be lower than 2. Please introduce higher number!")
@@ -150,7 +150,7 @@ create_multiple_models <- function(experiment_name,
   chunks <- list()
 
   for (i in n_min:n_max) {
-    chunks[[i - 1]] <- combn(names(train_data_united)[!(names(train_data_united) %in% c(target$target_variable, target$id_variable))], i, simplify = FALSE)
+    chunks[[i - 1]] <- combn(names(train_data)[!(names(train_data) %in% c(target$target_variable, target$id_variable))], i, simplify = FALSE)
   }
 
   names(chunks) <- paste0(n_min:n_max, "-vars models")
@@ -164,10 +164,10 @@ create_multiple_models <- function(experiment_name,
   save(test_data, file = paste(directory, "test_data.RData", sep = "/"))
 
   # Save train_data_united
-  save(train_data_united, file = paste(directory, "train_data_united.RData", sep = "/"))
+  # save(train_data_united, file = paste(directory, "train_data_united.RData", sep = "/"))
 
   # Save test_data_united
-  save(test_data_united, file = paste(directory, "test_data_united.RData", sep = "/"))
+  # save(test_data_united, file = paste(directory, "test_data_united.RData", sep = "/"))
 
   # Save experiment_timestamp
   save(experiment_timestamp, file = paste(directory, "experiment_timestamp.RData", sep = "/"))
@@ -185,7 +185,7 @@ create_multiple_models <- function(experiment_name,
   cl <- parallel::makeCluster(n_cores, type = cluster_type)
 
   if (cluster_type == "PSOCK") {
-    parallel::clusterExport(cl = cl, varlist = c("train_data_united", "test_data_united", "target", "directory", "create_model"), envir = environment())
+    parallel::clusterExport(cl = cl, varlist = c("train_data", "test_data", "target", "directory", "create_model"), envir = environment())
     parallel::clusterEvalQ(cl, {
       library(tidyverse)
       # library(playOmics)
@@ -209,11 +209,11 @@ create_multiple_models <- function(experiment_name,
           # allow only for non-missing data
           # remove identifier so it won't be required when predicting on new data
           train_data <-
-            train_data_united[, c(single_model, target$target_variable)] %>%
+            train_data[, c(single_model, target$target_variable)] %>%
             na.omit()
           if(!is.null(test_data)){
             test_data <-
-              test_data_united[, c(single_model, target$target_variable)] %>%
+              test_data[, c(single_model, target$target_variable)] %>%
               na.omit()
           }
 
@@ -270,7 +270,6 @@ create_multiple_models <- function(experiment_name,
   parallel::stopCluster(cl)
   closeAllConnections()
   gc()
-
   logger::log_info("Modelling experiment ended")
 
   return(results)
