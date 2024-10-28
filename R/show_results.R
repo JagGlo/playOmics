@@ -22,6 +22,7 @@ results_GUI <- function(results, target) {
         htmlOutput("this_is_single_model_overview"),
         DT::dataTableOutput("present_data"),
         uiOutput("conditionalUI"),
+        checkboxInput("showPlane", "Show plane", value = TRUE),
         plotly::plotlyOutput("plotOutput"),
         DT::dataTableOutput("variable_stats"),
         permutationUI("permutations")
@@ -259,13 +260,23 @@ results_GUI <- function(results, target) {
         selected_cols <- setdiff(names(values$df_data), target$target_variable)
       }
 
+      coef <-
+        jsonlite::fromJSON(paste(values$dir, "model_coef.json", sep = "/")) %>%
+        as_tibble() |>
+        pivot_longer(everything()) |>
+        unnest_wider(value, transform = ~ paste(unlist(.), collapse = " "), names_sep = "_")
+
       req(length(selected_cols) >= 2) # Ensure at least two columns are selected
 
       if (length(selected_cols) == 2) {
+        coef_estim <- as.numeric(coef$value_estimate)
+        slope <- coef_estim[2]/(-coef_estim[3])
+        intercept <- coef_estim[1]/(-coef_estim[3]) 
         p <-
           values$df_data %>%
           ggplot(aes_(x = as.name(selected_cols[1]), y = as.name(selected_cols[2]), color = as.name(target$target_variable))) +
           geom_jitter(width = 0.1, height = 0.1) +
+          geom_abline(intercept = intercept, slope = slope, color = "gray", size = 2) +
           theme_bw()
         plotly::ggplotly(p)
       } else if (length(selected_cols) == 3) {
@@ -277,8 +288,19 @@ results_GUI <- function(results, target) {
           "<br>", target$target_variable, ": ", values$df_data[[target$target_variable]]
         )
 
+        coef_estim <- as.numeric(coef$value_estimate)
 
-        plotly::plot_ly(values$df_data,
+        x_range <- seq(min(values$df_data[[selected_cols[1]]]), max(values$df_data[[selected_cols[1]]]), length.out = 100)
+        y_range <- seq(min(values$df_data[[selected_cols[2]]]), max(values$df_data[[selected_cols[2]]]), length.out = 100)
+        grid <- expand.grid(x = x_range, y = y_range)
+        grid$z <- with(grid, -(coef_estim[1] + coef_estim[2] * x + coef_estim[3] * y) / coef_estim[4])
+
+        z_matrix <- matrix(grid$z, nrow = length(x_range), ncol = length(y_range))
+        x_matrix <- matrix(grid$x, nrow = length(x_range), ncol = length(y_range))
+        y_matrix <- matrix(grid$y, nrow = length(x_range), ncol = length(y_range))
+        
+        p <-
+          plotly::plot_ly(values$df_data,
           x = ~ jitter(values$df_data[[selected_cols[1]]]),
           y = ~ jitter(values$df_data[[selected_cols[2]]]),
           z = ~ jitter(values$df_data[[selected_cols[3]]]),
@@ -288,7 +310,22 @@ results_GUI <- function(results, target) {
           colors = c("#0C4B8E", "#BF382A"),
           type = "scatter3d",
           mode = "markers"
-        ) %>%
+        ) 
+        
+        # Conditionally add the plane using add_surface
+        if (input$showPlane) {
+          p <- p %>% 
+            plotly::add_surface(
+            x = x_matrix,
+            y = y_matrix,
+            z = z_matrix,
+            opacity = 0.3,
+            colorscale = list(c(0,1), c("grey", "grey")),  # Single color for the plane
+            showscale = FALSE  # Hide color scale for the plane
+          )
+        }
+        
+        p %>% 
           plotly::layout(scene = list(
             xaxis = list(title = selected_cols[1]),
             yaxis = list(title = selected_cols[2]),
