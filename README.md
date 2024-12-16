@@ -290,9 +290,7 @@ It’s helpful to discover whether the data has the required structure at
 a glance. This might be especially important when reading data from text
 files (e.g. for proteomics experiment).
 
-Next, you can explore each dataframe separately using two functions:
-
-- **check_data()** will return basic statistics about each numerical and
+Next, you can explore each dataframe separately using the **check_data()** function.It will return basic statistics about each numerical and
   non-numerical variables separately. It’s a simple way to check for
   suspicious variables (e.g. low number of unique positions):
 
@@ -331,24 +329,7 @@ check_data(BRCA_data$clinical_data)
 #> #   max <dbl>
 ```
 
-- **plot_stats()** can visualize data based on statistics obtained with
-  **check_data()** function, as it might be tricky to examine all
-  variables separately:
 
-``` r
-plot_stats(BRCA_data$RNAseq, metric_to_plot = mean)
-```
-
-\[\[1\]\]
-
-|   min | median |  mean |    sd |    max |
-|------:|-------:|------:|------:|-------:|
-| 0.001 |  7.671 | 6.536 | 3.853 | 16.466 |
-
-Stats for mean across all variables
-
-\[\[2\]\]
-<img src="man/figures/README-unnamed-chunk-12-1.png" width="100%" />
 
 ### Quality check
 
@@ -492,7 +473,9 @@ columns: `sex_male` and `sex_female` filled with 1/0 values) and
 translate logical columns into numbers. It also adds the dataset name to
 each variable to distinguish data.
 
-``` r
+After the initial preprocessing, all the datasets are combined into one comprehensive dataframe using early concatenation.
+
+```{r warning=FALSE}
 data_prepared <-
   prepare_data_for_modelling(data = BRCA_data_splitted$train_data, target = my_target, remove_correlated_features = F)
 ```
@@ -514,64 +497,43 @@ this are prone to overfit; therefore, before we attempt to predict the
 target, we need to reduce data size. For efficiency, the filter method
 is chosen over wrapper or embedded methods.
 
-The **nested_filtering()** function performs n-times feature ranking for
-better data generalization. It works as follows:
+The **rank_and_select_features()** function is designed to rank and select features in a dataset. It provides two modes of operation: features can be ranked either separately for each dataset or in a combined manner across all datasets. This flexibility allows the function to adapt to different analytical scenarios, whether you need independent feature rankings for individual datasets or a unified ranking for the entire dataset.
 
-For each fold, “k-1” folds of training data are ranked to check their
-convergence with the target in the univariate analysis fashion. This
-process is repeated k times, and next, the mean rank value from all runs
-is calculated. Different evaluation metrics are available (see more
-under <https://mlr3filters.mlr-org.com/>).
-
-Variables might be selected in three ways:
+Once the features are ranked, the function allows you to select the most relevant ones using one of three methods:
 
 - by selecting defined “top n” features,
 - by selecting % of variables from each dataset,
 - or by defining a cut-off threshold for a selected metric.
 
-What’s important, at this level, we are still operating on each dataset
-separately, which allows us to preserve an equal number of slots for all
-data frames. This approach ensures you’re working with the most relevant
-features, optimizing the model’s performance and efficiency.
+The function supports all feature ranking methods available in the mlr3filters package (see more under <https://mlr3filters.mlr-org.com/>).
 
 ``` r
 data_filtered <-
-  nested_filtering(
+  rank_and_select_features(
     data = data_prepared,
     target = my_target,
     filter_name = "auc",
     cutoff_method = "top_n",
     cutoff_treshold = 5,
-    return_ranking_list = F,
+    selection_type = "separate", 
+    return_ranking_list = TRUE, 
     n_fold = 5,
     n_threads = 5
   )
 rm(data_prepared)
 ```
 
-If the parameter “return_ranking_list” is set to TRUE, the function will
-return a list containing the filtered datasets and the ranking list. If
-you wish to obtain a ranking among all features (global ranking), you
-can use it like this:
+If the parameter "return_ranking_list" is set to TRUE, the function will return a list containing the filtered datasets and the ranking list. The ranking can be visualized using the **visualize_ranking()** function:
 
-``` r
-all_data_rank <-  
-  data_filtered$ranking_list %>% 
-  bind_rows() %>%
-  arrange(desc(mean_score)) %>%
-  top_n(5, mean_score) # to select 5 features among all datasets
-
-train_data_top_5 <-
-    data_prepared %>%
-    reduce(full_join, by = c(my_target$id_variable)) %>%
-    select(-my_target$id_variable, -my_target$target_variable, everything()) %>%
-    select(my_target$id_variable, my_target$target_variable, all_data_rank$original_name)
-
-test_data_top_5 <- 
-   test_data_prepared %>%
-    reduce(full_join, by = c(my_target$id_variable)) %>%
-    select(names(train_data_top_5)) # to select the same variables as in train data
+```{r}
+visualize_ranking(data_filtered$ranking_list)
 ```
+
+### Feature selection method consideration
+
+To support you in making an informed decision about optimal feature selection strategy for your data, we’ve prepared a notebook that is designed to fit the playOmics data structure. This notebook allows you to experiment with various feature selection methods and evaluate which approach works best for your analysis. You can find it in the playomics_env GitHub repository, where it is ready to be used within the dockerized environment: [FS_diagnostic_plots.Rmd]((https://github.com/JagGlo/playOmics_env/feature selection simulations/FS_simulations.Rmd).
+
+It includes bunch of filter methods provided by the mlr3filters package ( <https://mlr3filters.mlr-org.com/>), moreover, it also supports two embedded methods: Lasso and Random Forest (RF). This setup gives you flexibility in testing different feature selection strategies, helping you identify the optimal approach for your specific dataset and problem.
 
 ### Modelling
 
@@ -846,6 +808,146 @@ validation_data_prepared <-
 
 ``` r
 results_GUI(results, target = validation_target)
+```
+
+### Ensemble Learning Guide  
+
+At the end of the pipeline, ensemble learning is performed to identify a minimal number of models that can collectively maximize prediction quality. By combining the predictions of multiple models, you can achieve improved accuracy, robustness, and stability in your results. Ensemble learning helps balance the trade-off between using fewer models and retaining high-quality predictions. Below, we walk you through the steps of implementing ensemble learning using your dataset and predictions.
+
+You can find the complete notebook in the playomics_env GitHub repository, where it is ready to be used within the dockerized environment: [ensembling_notebook.Rmd](https://github.com/JagGlo/playOmics_env/ensembling/ensembling_notebook.Rmd).
+
+#### Step 1: **Read Model Data**
+
+First, load the results of your models into memory. This data contains essential information about the models, including their directories and names, which will be used throughout the ensemble learning process.
+
+```r
+results <- read_model_data(
+  experiment_name = my_experiment_name,
+  directory = here::here()
+)
+
+selected_models <- results
+```
+
+#### Step 2: **Read Predictions and Prepare for Ensembling**
+
+Next, import the logged predictions from the models. These predictions are merged with the model metadata (like model names) and formatted into a structure suitable for ensemble learning.
+
+```r
+predictions <- read_logged_predictions(
+  experiment_name = my_experiment_name,
+  prediction_type = "test",
+  directory = here::here()
+) %>% 
+  left_join(
+    results %>% 
+      transmute(dir = model_dir, model_name),
+    by = "dir"
+  ) %>% 
+  select(-dir)
+```
+
+#### Step 3: **Define the Target Variable**
+
+Define the target variable using the `playOmics::define_target()` function. This ensures that your predictions align correctly with the target data structure.
+
+```r
+my_target <- playOmics::define_target(
+  phenotype_df_name = "clinical",
+  id_variable_name = "ID",
+  target_variable_name = "histological_type"
+)
+my_target$target_levels <- levels(pull(predictions, !!sym(my_target$target_variable)))
+```
+
+If a positive class is defined, determine its predicted probability column name. Otherwise, use the first target level as the predicted positive class.
+
+```r
+predicted_as_positive <- if(!is.null(my_target$positive_class)){
+  paste0(".pred_", my_target$positive_class)
+} else {
+  paste0(".pred_", my_target$target_levels[1])
+}
+```
+
+#### Step 4: **Prepare the Data for Ensembling**
+
+Spread the predictions from individual models into a wide format for ensembling. Each column represents the predictions of a single model.
+
+```r
+pred_spread <- predictions %>% 
+  select(model_name, !!predicted_as_positive, ID) %>% 
+  spread(model_name, !!predicted_as_positive) %>% 
+  select(-ID) %>% 
+  mutate_all(as.numeric)
+```
+
+Load the training, testing, and exemplary datasets. Prepare the exemplary dataset to align with the training data structure.
+
+```r
+load(paste(here::here(), my_experiment_name, "train_data.RData", sep = "/"))
+load(paste(here::here(), my_experiment_name, "test_data.RData", sep = "/"))
+exemplary_set <- readRDS(paste(here::here(), my_experiment_name, "exemplary_set.RDS", sep = "/"))
+
+exemplary_set <- exemplary_dataset %>% 
+  prepare_data_for_modelling(target = my_target) %>% 
+  select(names(train_data))
+```
+
+#### Step 5: **Stepwise Metric Calculation**
+
+Source the necessary helper functions for ensembling, then calculate stepwise metrics using different values of the regularization parameter (`lambda`). This step allows you to evaluate ensemble size and voting strategies (e.g., soft voting) under varying conditions.
+
+Run the stepwise metric calculation. Here, you evaluate the performance of ensembles containing different numbers of models (e.g., 1, 3, 5, 7, 9) while varying the regularization parameter `lambda` between 0 and 1.
+
+```r
+ensembling_results <- 
+  lapply(seq(0, 1, 0.25), function(lambda){
+    metrics_test_stepwise(
+      selected_models, 
+      exemplary_dataset, 
+      pred_spread, 
+      "miss", 
+      "test_accuracy", 
+      lambda = lambda, 
+      vec_of_ensemble_size = c(1, 3, 5, 7, 9), 
+      voting = "soft", 
+      my_target
+    )
+  })
+```
+
+#### Step 6: **Visualize Results**
+
+Visualize the stepwise ensemble performance using the `show_plots()` function. Save the resulting plots to a file for future reference.
+
+```r
+ensembling_results %>% show_plots()
+```
+
+#### Step 7: **Analyze Ensemble Performance**
+
+Extract and analyze the predictions generated by the ensembles, focusing on ensemble size, accuracy, and other metrics of interest.
+
+```r
+ensembling_results %>% 
+  lapply(function(x){
+    x$predictions
+  }) %>% 
+  bind_rows() %>% 
+  select(n_ensemble, lambda, `TRUE`, `FALSE`, n_not_classified, adjusted_acc, accuracy) %>% 
+  filter(lambda == 0)
+```
+
+You can also examine the models included in each ensemble for different values of `lambda`.
+
+```r
+ensembling_results %>% 
+  lapply(function(x){
+    x$models
+  }) %>% 
+  bind_rows() %>% 
+  filter(lambda == 0)
 ```
 
 # Package scheme
