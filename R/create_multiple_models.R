@@ -114,6 +114,7 @@ create_multiple_models <- function(experiment_name,
                                    # single model settings
                                    validation_method = "cv",
                                    n_prop = 2 / 3,
+                                   n_fold = 5,
                                    n_repeats = 5,
                                    log_experiment = TRUE,
                                    explain = TRUE,
@@ -227,6 +228,7 @@ create_multiple_models <- function(experiment_name,
                          directory = directory,
                          validation_method = validation_method,
                          n_prop = n_prop,
+                         n_fold = n_fold,
                          n_repeats = n_repeats
             )
 
