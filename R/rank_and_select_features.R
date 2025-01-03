@@ -90,7 +90,7 @@ rank_and_select_features <- function(data, target, filter_name = "auc", cutoff_m
     split_data <- map(unique(dataset_assignments), function(dataset) {
       selected_columns <- grep(paste0("\\[", dataset, "\\]"), colnames(data), value = TRUE)
       data %>%
-        select(ID, all_of(selected_columns))
+        select(my_target$id_variable, all_of(selected_columns))
     })
 
     # Name each element of the list with the dataset assignment
