@@ -32,7 +32,7 @@ used for selecting features; one of the following:
 Default is "top_n".}
 
 \item{cutoff_treshold}{Depending of a cutoff method, a number of features to be selected (for "top_n" method),
-percentage of variables to be selected (for "percentage" method), a threshold above which features are selected (for "percentage" method). Default is 1.}
+percentage of variables to be selected (for "percentage" method), a threshold above which features are selected (for "threshold" method). Default is 1.}
 
 \item{return_ranking_list}{A logical value specifying whether to return the
 ranking list. Default is FALSE. If set to TRUE, the function will return a list containing the filtered datasets and the ranking list.}

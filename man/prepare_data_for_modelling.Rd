@@ -4,7 +4,12 @@
 \alias{prepare_data_for_modelling}
 \title{Prepare data for modelling}
 \usage{
-prepare_data_for_modelling(data, target, remove_correlated_features = FALSE)
+prepare_data_for_modelling(
+  data,
+  target,
+  remove_correlated_features = FALSE,
+  normalize_data = FALSE
+)
 }
 \arguments{
 \item{data}{A named list of data.frames containing the data to be prepared for modelling.}

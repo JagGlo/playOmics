@@ -180,12 +180,12 @@ create_model <- function(
             )
           )
 
-        if (log_experiment) {
-          logger::log_eval(
-            model_res,
-            multiline = TRUE, level = logger::WARN
-          )
-        }
+        # if (log_experiment) {
+        #   logger::log_eval(
+        #     model_res,
+        #     multiline = TRUE, level = logger::WARN
+        #   )
+        # }
 
         train_results <-
           model_res %>%
@@ -259,7 +259,7 @@ create_model <- function(
               yardstick::f_meas
             )
 
-          predicted_as_positive <- 
+          predicted_as_positive <-
             if(!is.null(target$positive_class)){
               target$positive_class
             } else {

@@ -9,7 +9,9 @@ create_model(
   test_data,
   target,
   validation_method = "cv",
+  n_fold = 5,
   n_prop = 2/3,
+  model_type = "LR",
   n_repeats = 5,
   log_experiment = TRUE,
   explain = TRUE,
@@ -26,7 +28,9 @@ create_model(
 
 \item{validation_method}{A character string specifying the validation method to be used; either "subsampling" or "cv" (default: "cv").}
 
-\item{n_prop}{A numeric value representing the proportion of data used for each resample in the subsampling process (default: 2/3 for subsampling).}
+\item{n_fold}{A numeric value representing number of fold for k-fold cross-validation (default: 5).}
+
+\item{n_prop}{A numeric value representing the proportion of data used for each resample in the subsampling process (e.g. 2/3 for subsampling).}
 
 \item{n_repeats}{A numeric value specifying the number of times to repeat the validation (default: 5).}
 

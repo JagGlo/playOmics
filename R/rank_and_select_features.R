@@ -71,6 +71,36 @@ select_features <- function(data, ranking, target, cutoff_method, cutoff_treshol
   return(filtered_data)
 }
 
+#' Rank and Select Features from Data
+#'
+#' The `rank_and_select_features()` function performs feature ranking and selection on a given dataset using various ranking filters.
+#' The function supports either separate or combined selection for different datasets within `data`, enabling flexibility in ranking and selection.
+#'
+#' @param data A data frame or list of data frames containing predictor variables. For separate selection, `data` should be a single data frame with columns tagged for different datasets.
+#' @param target A list containing the following elements:
+#' - `id_variable`: Character, the column name identifying unique observations.
+#' - `target_variable`: Character, the name of the target variable for classification.
+#' - `positive_class`: Character, the class to be considered positive for binary classification.
+#' - `phenotype_df`: Character, optional, specifying the main dataset name when `selection_type = "separate"`.
+#' @param filter_name Character, the name of the filter for ranking features (e.g., `"auc"`, `"information_gain"`, `"variance"`, `"mrmr"`, `"jmim"`).
+#' @param cutoff_method Character, the method for selecting features. Options are `"top_n"`, `"percentage"`, or `"threshold"`.
+#' @param cutoff_treshold Numeric, the threshold for feature selection based on the specified `cutoff_method`.
+#' @param selection_type Character, specifies the selection mode. Options are `"combined"` for ranking across all data or `"separate"` for individual datasets.
+#' @param return_ranking_list Logical, if `TRUE`, returns both the filtered data and ranking list.
+#' @param n_fold Integer, the number of folds for cross-validation. Default is `5`.
+#' @param n_threads Integer, number of threads to use for multi-threaded filters. Default is `1`.
+#'
+#' @return Returns either a data frame of selected features or, if `return_ranking_list = TRUE`, a list containing:
+#' - `filtered_data`: The filtered data frame after feature selection.
+#' - `ranking_list`: A list of feature rankings for each dataset.
+#'
+#' @examples
+#' # Example usage
+#' target <- list(id_variable = "ID", target_variable = "Outcome", positive_class = "Positive", phenotype_df = "main")
+#' result <- rank_and_select_features(data = mydata, target = target, filter_name = "auc", cutoff_method = "top_n", cutoff_treshold = 10)
+#'
+#' @export
+
 rank_and_select_features <- function(data, target, filter_name = "auc", cutoff_method = "top_n", cutoff_treshold = 10,
                                      selection_type = "combined", return_ranking_list = FALSE, n_fold = 5, n_threads = 1) {
 
@@ -79,7 +109,7 @@ rank_and_select_features <- function(data, target, filter_name = "auc", cutoff_m
     # Initialize filtered_data and ranking_list
     filtered_data <- list()
     ranking_list <- list()
-    
+
     #Extract the dataset assignment from the column names
     dataset_assignments <- colnames(data) %>%
       str_extract_all("\\[.*?\\]") %>%
@@ -95,11 +125,11 @@ rank_and_select_features <- function(data, target, filter_name = "auc", cutoff_m
 
     # Name each element of the list with the dataset assignment
     names(split_data) <- unique(dataset_assignments)
-    
+
     split_data[[target$phenotype_df]] <- data %>% select(my_target$id_variable, my_target$target_variable)
-    
+
     data <- split_data
-    
+
     # Perform ranking
     for(dataframe in names(data)){
       logger::log_info("Ranking {dataframe} data")
@@ -128,12 +158,12 @@ rank_and_select_features <- function(data, target, filter_name = "auc", cutoff_m
       filtered_data[[dataframe]] <- ranked_features$selected_features
       ranking_list[[dataframe]] <- ranked_features$ranking
     }
-    
+
     filtered_data <-
       c(filtered_data, data[target$phenotype_df]) %>%
       reduce(full_join, by = c(target$target_variable, target$id_variable)) %>%
       select(-target$id_variable, -target$target_variable, everything())
-    
+
     if (return_ranking_list) {
       return(list(filtered_data = filtered_data, ranking_list = ranking_list))
     } else {
@@ -163,5 +193,5 @@ rank_and_select_features <- function(data, target, filter_name = "auc", cutoff_m
   } else {
     stop("Selection method not found!")
   }
-  
+
 }

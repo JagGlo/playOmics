@@ -16,6 +16,7 @@ create_multiple_models(
   trim_threshold = 0.3,
   validation_method = "cv",
   n_prop = 2/3,
+  n_fold = 5,
   n_repeats = 5,
   log_experiment = TRUE,
   explain = TRUE,
